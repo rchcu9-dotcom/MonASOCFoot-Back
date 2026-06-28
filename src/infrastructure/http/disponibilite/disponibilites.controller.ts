@@ -13,9 +13,16 @@ import {
   DisponibiliteActiviteDto,
   toDisponibiliteActiviteDto,
 } from "../../../application/disponibilite/dto/disponibilite-activite.dto";
+import { DeclarerDisponibiliteJourneeDto } from "../../../application/disponibilite/dto/declarer-disponibilite-journee.dto";
 import { DisponibilitesEffectifResponseDto } from "../../../application/disponibilite/dto/disponibilite-effectif.dto";
+import {
+  DisponibiliteJourneeDto,
+  toDisponibiliteJourneeDto,
+} from "../../../application/disponibilite/dto/disponibilite-journee.dto";
 import { ConsulterDisponibilitesEffectifUseCase } from "../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case";
 import { DeclarerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case";
+import { DeclarerDisponibiliteJourneeUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case";
+import { ListerMesDisponibilitesJourneeUseCase } from "../../../application/disponibilite/use-cases/lister-mes-disponibilites-journee.use-case";
 import { SupprimerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/supprimer-disponibilite-activite.use-case";
 import type { Utilisateur } from "../../../domain/utilisateur/entities/utilisateur.entity";
 import { CurrentUser } from "../shared/current-user.decorator";
@@ -27,6 +34,8 @@ export class DisponibilitesController {
     private readonly consulterDisponibilitesEffectifUseCase: ConsulterDisponibilitesEffectifUseCase,
     private readonly declarerDisponibiliteActiviteUseCase: DeclarerDisponibiliteActiviteUseCase,
     private readonly supprimerDisponibiliteActiviteUseCase: SupprimerDisponibiliteActiviteUseCase,
+    private readonly declarerDisponibiliteJourneeUseCase: DeclarerDisponibiliteJourneeUseCase,
+    private readonly listerMesDisponibilitesJourneeUseCase: ListerMesDisponibilitesJourneeUseCase,
   ) {}
 
   @Get("effectif")
@@ -69,5 +78,31 @@ export class DisponibilitesController {
       utilisateurId,
       utilisateurConnecte,
     );
+  }
+
+  @Get("journee/mes-disponibilites")
+  @RequireAuth()
+  async listerMesDisponibilitesJournee(
+    @CurrentUser() utilisateurConnecte: Utilisateur,
+  ): Promise<DisponibiliteJourneeDto[]> {
+    const disponibilites = await this.listerMesDisponibilitesJourneeUseCase.execute(
+      utilisateurConnecte,
+    );
+    return disponibilites.map(toDisponibiliteJourneeDto);
+  }
+
+  @Put("journee/:date")
+  @RequireAuth()
+  async declarerDisponibiliteJournee(
+    @Param("date") date: string,
+    @Body() dto: DeclarerDisponibiliteJourneeDto,
+    @CurrentUser() utilisateurConnecte: Utilisateur,
+  ): Promise<DisponibiliteJourneeDto> {
+    const disponibilite = await this.declarerDisponibiliteJourneeUseCase.execute(
+      date,
+      dto,
+      utilisateurConnecte,
+    );
+    return toDisponibiliteJourneeDto(disponibilite);
   }
 }

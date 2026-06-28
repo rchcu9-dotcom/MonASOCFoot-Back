@@ -40,6 +40,23 @@ export class DisponibiliteJourneePrismaRepository
     });
     return rows.map(toDomain);
   }
+
+  async findByUtilisateurEtDate(
+    utilisateurId: string,
+    date: string,
+  ): Promise<DisponibiliteJournee | null> {
+    const row = await this.prisma.disponibiliteJournee.findUnique({
+      where: { utilisateurId_date: { utilisateurId, date } },
+    });
+    return row ? toDomain(row) : null;
+  }
+
+  async findByUtilisateurId(utilisateurId: string): Promise<DisponibiliteJournee[]> {
+    const rows = await this.prisma.disponibiliteJournee.findMany({
+      where: { utilisateurId },
+    });
+    return rows.map(toDomain);
+  }
 }
 
 function toDomain(row: DisponibiliteJourneeRow): DisponibiliteJournee {
