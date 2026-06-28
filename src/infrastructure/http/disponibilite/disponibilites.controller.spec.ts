@@ -2,9 +2,13 @@ import { DisponibilitesController } from './disponibilites.controller';
 import type { ConsulterDisponibilitesEffectifUseCase } from '../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case';
 import type { DeclarerDisponibiliteActiviteUseCase } from '../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case';
 import type { SupprimerDisponibiliteActiviteUseCase } from '../../../application/disponibilite/use-cases/supprimer-disponibilite-activite.use-case';
+import type { DeclarerDisponibiliteJourneeUseCase } from '../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case';
+import type { ListerMesDisponibilitesJourneeUseCase } from '../../../application/disponibilite/use-cases/lister-mes-disponibilites-journee.use-case';
 import type { DisponibilitesEffectifResponseDto } from '../../../application/disponibilite/dto/disponibilite-effectif.dto';
 import type { DeclarerDisponibiliteActiviteDto } from '../../../application/disponibilite/dto/declarer-disponibilite-activite.dto';
+import type { DeclarerDisponibiliteJourneeDto } from '../../../application/disponibilite/dto/declarer-disponibilite-journee.dto';
 import type { DisponibiliteActivite } from '../../../domain/disponibilite/entities/disponibilite-activite.entity';
+import type { DisponibiliteJournee } from '../../../domain/disponibilite/entities/disponibilite-journee.entity';
 import type { Utilisateur } from '../../../domain/utilisateur/entities/utilisateur.entity';
 
 function makeUtilisateur(overrides: Partial<Utilisateur> = {}): Utilisateur {
@@ -23,6 +27,8 @@ function makeController(options: {
   getEffectif?: jest.Mock;
   declarer?: jest.Mock;
   supprimer?: jest.Mock;
+  declarerJournee?: jest.Mock;
+  listerMesDisponibilitesJournee?: jest.Mock;
 } = {}) {
   const consulterUseCase = {
     execute: options.getEffectif ?? jest.fn().mockResolvedValue(reponseVide),
@@ -33,8 +39,20 @@ function makeController(options: {
   const supprimerUseCase = {
     execute: options.supprimer ?? jest.fn(),
   } as unknown as SupprimerDisponibiliteActiviteUseCase;
+  const declarerJourneeUseCase = {
+    execute: options.declarerJournee ?? jest.fn(),
+  } as unknown as DeclarerDisponibiliteJourneeUseCase;
+  const listerMesDisponibilitesJourneeUseCase = {
+    execute: options.listerMesDisponibilitesJournee ?? jest.fn().mockResolvedValue([]),
+  } as unknown as ListerMesDisponibilitesJourneeUseCase;
 
-  return new DisponibilitesController(consulterUseCase, declarerUseCase, supprimerUseCase);
+  return new DisponibilitesController(
+    consulterUseCase,
+    declarerUseCase,
+    supprimerUseCase,
+    declarerJourneeUseCase,
+    listerMesDisponibilitesJourneeUseCase,
+  );
 }
 
 const reponseVide: DisponibilitesEffectifResponseDto = { activites: [], joueurs: [] };
@@ -169,6 +187,86 @@ describe('DisponibilitesController', () => {
       await expect(
         controller.supprimerDisponibiliteActivite('activite-1', undefined, makeUtilisateur()),
       ).rejects.toThrow('Aucune surcharge');
+    });
+  });
+
+  describe('declarerDisponibiliteJournee', () => {
+    it('délègue au use case avec date, dto et utilisateur connecté, et mappe le résultat en DTO', async () => {
+      const disponibilite: DisponibiliteJournee = {
+        id: 'dispo-journee-1',
+        utilisateurId: 'joueur-1',
+        date: '2026-07-01',
+        statut: 'present',
+        commentaire: 'Je viens',
+      };
+      const declarerJournee = jest.fn().mockResolvedValue(disponibilite);
+      const controller = makeController({ declarerJournee });
+      const dto: DeclarerDisponibiliteJourneeDto = { statut: 'present', commentaire: 'Je viens' };
+      const utilisateur = makeUtilisateur();
+
+      const result = await controller.declarerDisponibiliteJournee('2026-07-01', dto, utilisateur);
+
+      expect(declarerJournee).toHaveBeenCalledWith('2026-07-01', dto, utilisateur);
+      expect(result).toEqual({
+        id: 'dispo-journee-1',
+        utilisateurId: 'joueur-1',
+        date: '2026-07-01',
+        statut: 'present',
+        commentaire: 'Je viens',
+      });
+    });
+
+    it('propage les exceptions levées par le use case (ex: ForbiddenException)', async () => {
+      const declarerJournee = jest
+        .fn()
+        .mockRejectedValue(new Error("Seul un admin peut modifier la disponibilité d'un autre utilisateur"));
+      const controller = makeController({ declarerJournee });
+
+      await expect(
+        controller.declarerDisponibiliteJournee(
+          '2026-07-01',
+          { statut: 'absent', utilisateurId: 'autre-joueur' } as DeclarerDisponibiliteJourneeDto,
+          makeUtilisateur(),
+        ),
+      ).rejects.toThrow("Seul un admin peut modifier la disponibilité d'un autre utilisateur");
+    });
+  });
+
+  describe('listerMesDisponibilitesJournee', () => {
+    it("délègue au use case avec l'utilisateur connecté et mappe chaque résultat en DTO", async () => {
+      const disponibilites: DisponibiliteJournee[] = [
+        { id: 'd1', utilisateurId: 'joueur-1', date: '2026-07-01', statut: 'present' },
+        { id: 'd2', utilisateurId: 'joueur-1', date: '2026-07-08', statut: 'absent', commentaire: 'Vacances' },
+      ];
+      const listerMesDisponibilitesJournee = jest.fn().mockResolvedValue(disponibilites);
+      const controller = makeController({ listerMesDisponibilitesJournee });
+      const utilisateur = makeUtilisateur();
+
+      const result = await controller.listerMesDisponibilitesJournee(utilisateur);
+
+      expect(listerMesDisponibilitesJournee).toHaveBeenCalledWith(utilisateur);
+      expect(result).toEqual([
+        { id: 'd1', utilisateurId: 'joueur-1', date: '2026-07-01', statut: 'present' },
+        { id: 'd2', utilisateurId: 'joueur-1', date: '2026-07-08', statut: 'absent', commentaire: 'Vacances' },
+      ]);
+    });
+
+    it("renvoie un tableau vide quand l'utilisateur connecté n'a aucune disponibilité de journée déclarée", async () => {
+      const listerMesDisponibilitesJournee = jest.fn().mockResolvedValue([]);
+      const controller = makeController({ listerMesDisponibilitesJournee });
+
+      const result = await controller.listerMesDisponibilitesJournee(makeUtilisateur());
+
+      expect(result).toEqual([]);
+    });
+
+    it('propage les exceptions levées par le use case', async () => {
+      const listerMesDisponibilitesJournee = jest.fn().mockRejectedValue(new Error('Erreur inattendue'));
+      const controller = makeController({ listerMesDisponibilitesJournee });
+
+      await expect(
+        controller.listerMesDisponibilitesJournee(makeUtilisateur()),
+      ).rejects.toThrow('Erreur inattendue');
     });
   });
 });
