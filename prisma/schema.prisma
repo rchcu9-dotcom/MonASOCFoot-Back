@@ -1,0 +1,95 @@
+// Schéma Prisma — Système de persistance MonASOCFoot
+// Voir docs/specs/scaffolding-projet-monasocfoot.md et docs/specs/persistence-alwaysdata-monasocfoot.md.
+// Modèle Utilisateur repris à l'identique du pattern challenge-cardegall (lib auth partagée).
+// Modèles Activite/Disponibilite à enrichir lors des specs gestion-activites-admin /
+// saisie-disponibilite-journee / saisie-disponibilite-activite (phases 1 et 2).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Utilisateur {
+  id                String          @id @default(uuid())
+  providerId        String          @unique
+  provider          String
+  email             String
+  displayName       String
+  role              RoleUtilisateur @default(joueur)
+  dateApparition    String
+  derniereConnexion String
+
+  @@map("utilisateur")
+}
+
+enum RoleUtilisateur {
+  admin
+  joueur
+}
+
+// ─── Socle minimal activite/disponibilite (lecture seule pour cette feature) ───
+// Champs/contraintes d'écriture (validations métier, etc.) à compléter par
+// gestion-activites-admin / saisie-disponibilite-journee / saisie-disponibilite-activite.
+
+model Activite {
+  id               String         @id @default(uuid())
+  date             String
+  heureConvocation String
+  heureDebut       String
+  label            String
+  type             TypeActivite
+  commentaire      String?        @db.Text
+  source           SourceActivite @default(manuel)
+  /// Identifiant stable côté site du district — clé de dédup pour l'import automatique
+  /// (cf. spec import-matchs-site-district). Null pour les activités saisies manuellement.
+  idExterne        String?        @unique
+
+  disponibilitesActivite DisponibiliteActivite[]
+
+  @@map("activite")
+}
+
+enum TypeActivite {
+  match
+  autre
+}
+
+enum SourceActivite {
+  manuel
+  import
+}
+
+model DisponibiliteJournee {
+  id            String              @id @default(uuid())
+  utilisateurId String
+  date          String
+  statut        StatutDisponibilite
+  commentaire   String?             @db.Text
+
+  @@unique([utilisateurId, date])
+  @@map("disponibilite_journee")
+}
+
+model DisponibiliteActivite {
+  id            String              @id @default(uuid())
+  utilisateurId String
+  activiteId    String
+  statut        StatutDisponibilite
+  commentaire   String?             @db.Text
+
+  activite Activite @relation(fields: [activiteId], references: [id])
+
+  @@unique([utilisateurId, activiteId])
+  @@map("disponibilite_activite")
+}
+
+enum StatutDisponibilite {
+  present
+  disponible
+  absent
+  autre
+}
