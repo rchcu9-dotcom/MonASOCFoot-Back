@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { DisponibiliteActivite as DisponibiliteActiviteRow } from '@prisma/client';
 import { DisponibiliteActivite } from '../../../domain/disponibilite/entities/disponibilite-activite.entity';
 import { StatutDisponibilite } from '../../../domain/disponibilite/entities/statut-disponibilite.enum';
@@ -41,6 +41,24 @@ export class DisponibiliteActivitePrismaRepository
       where: { activiteId: { in: activiteIds } },
     });
     return rows.map(toDomain);
+  }
+
+  async findByUtilisateurEtActivite(
+    utilisateurId: string,
+    activiteId: string,
+  ): Promise<DisponibiliteActivite | null> {
+    const row = await this.prisma.disponibiliteActivite.findUnique({
+      where: { utilisateurId_activiteId: { utilisateurId, activiteId } },
+    });
+    return row ? toDomain(row) : null;
+  }
+
+  async deleteById(id: string): Promise<void> {
+    try {
+      await this.prisma.disponibiliteActivite.delete({ where: { id } });
+    } catch {
+      throw new NotFoundException(`Disponibilité d'activité ${id} introuvable`);
+    }
   }
 }
 

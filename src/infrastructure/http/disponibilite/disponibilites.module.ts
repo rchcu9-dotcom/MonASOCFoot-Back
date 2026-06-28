@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConsulterDisponibilitesEffectifUseCase } from "../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case";
+import { DeclarerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case";
+import { SupprimerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/supprimer-disponibilite-activite.use-case";
 import {
   DISPONIBILITE_ACTIVITE_REPOSITORY,
   DISPONIBILITE_JOURNEE_REPOSITORY,
@@ -15,6 +17,8 @@ import { DisponibilitesController } from "./disponibilites.controller";
   controllers: [DisponibilitesController],
   providers: [
     ConsulterDisponibilitesEffectifUseCase,
+    DeclarerDisponibiliteActiviteUseCase,
+    SupprimerDisponibiliteActiviteUseCase,
     {
       provide: DISPONIBILITE_JOURNEE_REPOSITORY,
       useClass: DisponibiliteJourneePrismaRepository,
