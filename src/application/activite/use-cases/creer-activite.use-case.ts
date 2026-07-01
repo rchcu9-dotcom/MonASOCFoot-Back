@@ -27,7 +27,9 @@ export class CreerActiviteUseCase {
       label: dto.label,
       type: dto.type,
       commentaire: dto.commentaire,
+      lieu: dto.lieu,
       source: "manuel",
+      equipe: dto.equipe,
     };
 
     return this.activites.save(activite);

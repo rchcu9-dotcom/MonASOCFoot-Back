@@ -48,7 +48,8 @@ export class ImporterMatchsDistrictUseCase {
       try {
         await this.traiterMatch(match, resultat);
       } catch (erreur) {
-        const message = erreur instanceof Error ? erreur.message : String(erreur);
+        const message =
+          erreur instanceof Error ? erreur.message : String(erreur);
         resultat.erreurs.push(`Match ${match.idExterne}: ${message}`);
       }
     }
@@ -66,7 +67,8 @@ export class ImporterMatchsDistrictUseCase {
         ...dejaImporte,
         date: match.date,
         heureDebut: match.heureDebut,
-        heureConvocation: match.heureConvocation ?? dejaImporte.heureConvocation,
+        heureConvocation:
+          match.heureConvocation ?? dejaImporte.heureConvocation,
         label: match.label,
         commentaire: match.complement ?? dejaImporte.commentaire,
       });
@@ -74,9 +76,13 @@ export class ImporterMatchsDistrictUseCase {
       return;
     }
 
-    const manuelleCorrespondante = await this.trouverActiviteManuelleCorrespondante(match);
+    const manuelleCorrespondante =
+      await this.trouverActiviteManuelleCorrespondante(match);
     if (manuelleCorrespondante) {
-      await this.activites.save({ ...manuelleCorrespondante, idExterne: match.idExterne });
+      await this.activites.save({
+        ...manuelleCorrespondante,
+        idExterne: match.idExterne,
+      });
       resultat.ignores += 1;
       return;
     }

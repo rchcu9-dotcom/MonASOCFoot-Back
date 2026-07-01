@@ -1,8 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Activite } from "../../../domain/activite/entities/activite.entity";
 import type { ActiviteRepository } from "../../../domain/activite/repositories/activite.repository.interface";
-import { DisponibiliteActivite } from "../../../domain/disponibilite/entities/disponibilite-activite.entity";
-import { DisponibiliteJournee } from "../../../domain/disponibilite/entities/disponibilite-journee.entity";
 import type { DisponibiliteActiviteRepository } from "../../../domain/disponibilite/repositories/disponibilite-activite.repository.interface";
 import type { DisponibiliteJourneeRepository } from "../../../domain/disponibilite/repositories/disponibilite-journee.repository.interface";
 import {
@@ -19,6 +17,7 @@ import {
   DisponibilitesEffectifResponseDto,
   LigneJoueurDto,
 } from "../dto/disponibilite-effectif.dto";
+import { fusionnerDisponibiliteEffective } from "../services/fusionner-disponibilite-effective";
 
 @Injectable()
 export class ConsulterDisponibilitesEffectifUseCase {
@@ -36,7 +35,16 @@ export class ConsulterDisponibilitesEffectifUseCase {
   async execute(
     query: ConsulterDisponibilitesEffectifQueryDto,
   ): Promise<DisponibilitesEffectifResponseDto> {
-    const activites = await this.resoudreActivites(query);
+    // Une activité sans date n'a aucun sens en consultation de disponibilités effectif (cf.
+    // spec pour-grer-les-activits-il-faut-pouvoir-bouger-lactivit-dune-) — filtrage défensif
+    // même si `resoudreActivites` ne devrait normalement jamais en remonter (`findUpcoming`
+    // exclut déjà `date: null`), sauf cas limite `query.activiteId` ciblant une activité non
+    // encore planifiée.
+    const activitesBrutes = await this.resoudreActivites(query);
+    const activites = activitesBrutes.filter(
+      (activite): activite is Activite & { date: string } =>
+        activite.date !== undefined,
+    );
     const utilisateurs = await this.utilisateurRepository.findAll();
 
     const datesDistinctes = Array.from(
@@ -62,11 +70,9 @@ export class ConsulterDisponibilitesEffectifUseCase {
       const disponibilites: Record<string, DisponibiliteEffectiveDto> = {};
 
       for (const activite of activites) {
-        disponibilites[activite.id] = this.resoudreDisponibiliteEffective(
-          utilisateur.id,
-          activite,
-          activiteParCle,
-          journeeParCle,
+        disponibilites[activite.id] = fusionnerDisponibiliteEffective(
+          activiteParCle.get(`${utilisateur.id}|${activite.id}`),
+          journeeParCle.get(`${utilisateur.id}|${activite.date}`),
         );
       }
 
@@ -99,37 +105,6 @@ export class ConsulterDisponibilitesEffectifUseCase {
     const aujourdHui = new Date().toISOString().slice(0, 10);
     return this.activiteRepository.findUpcoming(aujourdHui);
   }
-
-  private resoudreDisponibiliteEffective(
-    utilisateurId: string,
-    activite: Activite,
-    activiteParCle: Map<string, DisponibiliteActivite>,
-    journeeParCle: Map<string, DisponibiliteJournee>,
-  ): DisponibiliteEffectiveDto {
-    const surchargeActivite = activiteParCle.get(
-      `${utilisateurId}|${activite.id}`,
-    );
-    if (surchargeActivite) {
-      return {
-        statut: surchargeActivite.statut,
-        commentaire: surchargeActivite.commentaire,
-        source: "activite",
-      };
-    }
-
-    const disponibiliteJournee = journeeParCle.get(
-      `${utilisateurId}|${activite.date}`,
-    );
-    if (disponibiliteJournee) {
-      return {
-        statut: disponibiliteJournee.statut,
-        commentaire: disponibiliteJournee.commentaire,
-        source: "journee",
-      };
-    }
-
-    return { statut: "autre", source: "aucune" };
-  }
 }
 
 function indexerParCle<T>(
@@ -143,7 +118,9 @@ function indexerParCle<T>(
   return map;
 }
 
-function toActiviteColonneDto(activite: Activite): ActiviteColonneDto {
+function toActiviteColonneDto(
+  activite: Activite & { date: string },
+): ActiviteColonneDto {
   return {
     id: activite.id,
     date: activite.date,
@@ -151,5 +128,7 @@ function toActiviteColonneDto(activite: Activite): ActiviteColonneDto {
     heureDebut: activite.heureDebut,
     label: activite.label,
     type: activite.type,
+    commentaire: activite.commentaire,
+    equipe: activite.equipe,
   };
 }

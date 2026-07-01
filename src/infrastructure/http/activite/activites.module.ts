@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConsulterPlanificationActivitesUseCase } from "../../../application/activite/use-cases/consulter-planification-activites.use-case";
 import { CreerActiviteUseCase } from "../../../application/activite/use-cases/creer-activite.use-case";
 import { ImporterMatchsDistrictUseCase } from "../../../application/activite/use-cases/importer-matchs-district.use-case";
 import { ListerActivitesUseCase } from "../../../application/activite/use-cases/lister-activites.use-case";
@@ -20,8 +21,12 @@ import { ActivitesController } from "./activites.controller";
     ModifierActiviteUseCase,
     SupprimerActiviteUseCase,
     ImporterMatchsDistrictUseCase,
+    ConsulterPlanificationActivitesUseCase,
     { provide: ACTIVITE_REPOSITORY, useClass: ActivitePrismaRepository },
-    { provide: SOURCE_MATCHS_DISTRICT, useClass: SourceMatchsDistrictHttpAdapter },
+    {
+      provide: SOURCE_MATCHS_DISTRICT,
+      useClass: SourceMatchsDistrictHttpAdapter,
+    },
   ],
   exports: [ACTIVITE_REPOSITORY],
 })

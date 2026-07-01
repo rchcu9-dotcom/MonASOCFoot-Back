@@ -1,4 +1,7 @@
-import { TypeActivite } from "../../../domain/activite/entities/activite.entity";
+import {
+  EquipeClub,
+  TypeActivite,
+} from "../../../domain/activite/entities/activite.entity";
 import { StatutDisponibilite } from "../../../domain/disponibilite/entities/statut-disponibilite.enum";
 
 export interface DisponibiliteEffectiveDto {
@@ -21,6 +24,8 @@ export interface ActiviteColonneDto {
   heureDebut: string;
   label: string;
   type: TypeActivite;
+  commentaire?: string;
+  equipe?: EquipeClub;
 }
 
 export interface DisponibilitesEffectifResponseDto {

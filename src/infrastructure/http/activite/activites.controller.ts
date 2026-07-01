@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import {
   ActiviteDto,
@@ -15,6 +16,8 @@ import {
 import { CreerActiviteDto } from "../../../application/activite/dto/creer-activite.dto";
 import { ImportMatchsResultatDto } from "../../../application/activite/dto/import-matchs-resultat.dto";
 import { ModifierActiviteDto } from "../../../application/activite/dto/modifier-activite.dto";
+import { PlanificationActivitesDto } from "../../../application/activite/dto/planification-activites.dto";
+import { ConsulterPlanificationActivitesUseCase } from "../../../application/activite/use-cases/consulter-planification-activites.use-case";
 import { CreerActiviteUseCase } from "../../../application/activite/use-cases/creer-activite.use-case";
 import { ImporterMatchsDistrictUseCase } from "../../../application/activite/use-cases/importer-matchs-district.use-case";
 import { ListerActivitesUseCase } from "../../../application/activite/use-cases/lister-activites.use-case";
@@ -31,6 +34,7 @@ export class ActivitesController {
     private readonly modifierActiviteUseCase: ModifierActiviteUseCase,
     private readonly supprimerActiviteUseCase: SupprimerActiviteUseCase,
     private readonly importerMatchsDistrictUseCase: ImporterMatchsDistrictUseCase,
+    private readonly consulterPlanificationActivitesUseCase: ConsulterPlanificationActivitesUseCase,
   ) {}
 
   @Get()
@@ -38,6 +42,25 @@ export class ActivitesController {
   async findAll(): Promise<ActiviteDto[]> {
     const activites = await this.listerActivitesUseCase.execute();
     return activites.map(toActiviteDto);
+  }
+
+  /**
+   * Agrégation dédiée à la page de planification admin (deux colonnes) en un seul appel.
+   * `semaines` borne la fenêtre temporelle de `calendrier` (8 par défaut), extensible par
+   * tranches de 4 via « Charger plus » côté front.
+   */
+  @Get("planification")
+  @RequireAdmin()
+  async findPlanification(
+    @Query("semaines") semaines?: string,
+  ): Promise<PlanificationActivitesDto> {
+    const semainesNombre = semaines ? Number(semaines) : undefined;
+    const { sansDate, calendrier } =
+      await this.consulterPlanificationActivitesUseCase.execute(semainesNombre);
+    return {
+      sansDate: sansDate.map(toActiviteDto),
+      calendrier: calendrier.map(toActiviteDto),
+    };
   }
 
   @Post()

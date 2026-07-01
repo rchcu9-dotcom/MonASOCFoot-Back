@@ -16,7 +16,9 @@ export class ListerMesDisponibilitesJourneeUseCase {
     private readonly disponibilites: DisponibiliteJourneeRepository,
   ) {}
 
-  async execute(utilisateurConnecte: Utilisateur): Promise<DisponibiliteJournee[]> {
+  async execute(
+    utilisateurConnecte: Utilisateur,
+  ): Promise<DisponibiliteJournee[]> {
     return this.disponibilites.findByUtilisateurId(utilisateurConnecte.id);
   }
 }

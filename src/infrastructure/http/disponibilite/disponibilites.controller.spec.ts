@@ -1,10 +1,12 @@
 import { DisponibilitesController } from './disponibilites.controller';
 import type { ConsulterDisponibilitesEffectifUseCase } from '../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case';
+import type { ConsulterResumeAccueilUseCase } from '../../../application/disponibilite/use-cases/consulter-resume-accueil.use-case';
 import type { DeclarerDisponibiliteActiviteUseCase } from '../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case';
 import type { SupprimerDisponibiliteActiviteUseCase } from '../../../application/disponibilite/use-cases/supprimer-disponibilite-activite.use-case';
 import type { DeclarerDisponibiliteJourneeUseCase } from '../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case';
 import type { ListerMesDisponibilitesJourneeUseCase } from '../../../application/disponibilite/use-cases/lister-mes-disponibilites-journee.use-case';
 import type { DisponibilitesEffectifResponseDto } from '../../../application/disponibilite/dto/disponibilite-effectif.dto';
+import type { ResumeAccueilDto } from '../../../application/disponibilite/dto/resume-accueil.dto';
 import type { DeclarerDisponibiliteActiviteDto } from '../../../application/disponibilite/dto/declarer-disponibilite-activite.dto';
 import type { DeclarerDisponibiliteJourneeDto } from '../../../application/disponibilite/dto/declarer-disponibilite-journee.dto';
 import type { DisponibiliteActivite } from '../../../domain/disponibilite/entities/disponibilite-activite.entity';
@@ -29,6 +31,7 @@ function makeController(options: {
   supprimer?: jest.Mock;
   declarerJournee?: jest.Mock;
   listerMesDisponibilitesJournee?: jest.Mock;
+  getResumeAccueil?: jest.Mock;
 } = {}) {
   const consulterUseCase = {
     execute: options.getEffectif ?? jest.fn().mockResolvedValue(reponseVide),
@@ -45,6 +48,9 @@ function makeController(options: {
   const listerMesDisponibilitesJourneeUseCase = {
     execute: options.listerMesDisponibilitesJournee ?? jest.fn().mockResolvedValue([]),
   } as unknown as ListerMesDisponibilitesJourneeUseCase;
+  const consulterResumeAccueilUseCase = {
+    execute: options.getResumeAccueil ?? jest.fn().mockResolvedValue(resumeAccueilVide),
+  } as unknown as ConsulterResumeAccueilUseCase;
 
   return new DisponibilitesController(
     consulterUseCase,
@@ -52,10 +58,16 @@ function makeController(options: {
     supprimerUseCase,
     declarerJourneeUseCase,
     listerMesDisponibilitesJourneeUseCase,
+    consulterResumeAccueilUseCase,
   );
 }
 
 const reponseVide: DisponibilitesEffectifResponseDto = { activites: [], joueurs: [] };
+const resumeAccueilVide: ResumeAccueilDto = {
+  dernierePassee: null,
+  prochainesDates: [],
+  tableauDeBord: { totalAVenir: 0, renseigneesAVenir: 0, pourcentageRenseignement: 0 },
+};
 
 describe('DisponibilitesController', () => {
   describe('getEffectif', () => {
@@ -267,6 +279,33 @@ describe('DisponibilitesController', () => {
       await expect(
         controller.listerMesDisponibilitesJournee(makeUtilisateur()),
       ).rejects.toThrow('Erreur inattendue');
+    });
+  });
+
+  describe('getResumeAccueil', () => {
+    it("délègue au use case avec l'utilisateur connecté et renvoie directement sa réponse", async () => {
+      const resume: ResumeAccueilDto = {
+        dernierePassee: null,
+        prochainesDates: [],
+        tableauDeBord: { totalAVenir: 2, renseigneesAVenir: 1, pourcentageRenseignement: 50 },
+      };
+      const getResumeAccueil = jest.fn().mockResolvedValue(resume);
+      const controller = makeController({ getResumeAccueil });
+      const utilisateur = makeUtilisateur();
+
+      const result = await controller.getResumeAccueil(utilisateur);
+
+      expect(getResumeAccueil).toHaveBeenCalledWith(utilisateur);
+      expect(result).toBe(resume);
+    });
+
+    it('propage les exceptions levées par le use case', async () => {
+      const getResumeAccueil = jest.fn().mockRejectedValue(new Error('Erreur inattendue'));
+      const controller = makeController({ getResumeAccueil });
+
+      await expect(controller.getResumeAccueil(makeUtilisateur())).rejects.toThrow(
+        'Erreur inattendue',
+      );
     });
   });
 });

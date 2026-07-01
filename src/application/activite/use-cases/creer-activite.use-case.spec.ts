@@ -101,4 +101,49 @@ describe('CreerActiviteUseCase', () => {
 
     expect(result).toBe(activitePersistee);
   });
+
+  it('crée une activité sans date quand le champ "date" est absent du DTO', async () => {
+    const { useCase, activiteRepository } = makeUseCase();
+    const dto = makeDto();
+    delete (dto as Partial<CreerActiviteDto>).date;
+
+    const result = await useCase.execute(dto);
+
+    expect(result.date).toBeUndefined();
+    expect(activiteRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ date: undefined }),
+    );
+  });
+
+  it('transmet le champ "equipe" optionnel quand il est fourni', async () => {
+    const { useCase } = makeUseCase();
+
+    const result = await useCase.execute(makeDto({ equipe: 'B' }));
+
+    expect(result.equipe).toBe('B');
+  });
+
+  it('ne renseigne pas "equipe" quand il est absent du DTO', async () => {
+    const { useCase } = makeUseCase();
+
+    const result = await useCase.execute(makeDto());
+
+    expect(result.equipe).toBeUndefined();
+  });
+
+  it('transmet le lieu optionnel quand il est fourni', async () => {
+    const { useCase } = makeUseCase();
+
+    const result = await useCase.execute(makeDto({ lieu: 'Stade municipal' }));
+
+    expect(result.lieu).toBe('Stade municipal');
+  });
+
+  it('ne renseigne pas le lieu quand il est absent du DTO', async () => {
+    const { useCase } = makeUseCase();
+
+    const result = await useCase.execute(makeDto());
+
+    expect(result.lieu).toBeUndefined();
+  });
 });

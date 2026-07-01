@@ -215,6 +215,61 @@ describe('ConsulterDisponibilitesEffectifUseCase', () => {
     });
   });
 
+  describe('passthrough des champs equipe/commentaire (ActiviteColonneDto)', () => {
+    it("transmet equipe et commentaire de l'activité dans ActiviteColonneDto quand ils sont renseignés", async () => {
+      const activite = makeActivite({
+        id: 'activite-equipe-a',
+        equipe: 'A',
+        commentaire: 'Apporter les maillots',
+      });
+
+      const { useCase } = makeUseCase({
+        activiteRepository: {
+          findUpcoming: jest.fn().mockResolvedValue([activite]),
+        },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.activites[0]).toEqual(
+        expect.objectContaining({
+          id: 'activite-equipe-a',
+          equipe: 'A',
+          commentaire: 'Apporter les maillots',
+        }),
+      );
+    });
+
+    it("laisse equipe et commentaire indéfinis dans ActiviteColonneDto quand l'activité ne les porte pas", async () => {
+      const activite = makeActivite({ id: 'activite-sans-equipe' });
+
+      const { useCase } = makeUseCase({
+        activiteRepository: {
+          findUpcoming: jest.fn().mockResolvedValue([activite]),
+        },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.activites[0].equipe).toBeUndefined();
+      expect(result.activites[0].commentaire).toBeUndefined();
+    });
+
+    it('transmet equipe via la résolution par activiteId (findById)', async () => {
+      const activite = makeActivite({ id: 'activite-ciblee', equipe: 'Vet' });
+
+      const { useCase } = makeUseCase({
+        activiteRepository: {
+          findById: jest.fn().mockResolvedValue(activite),
+        },
+      });
+
+      const result = await useCase.execute({ activiteId: 'activite-ciblee' });
+
+      expect(result.activites[0].equipe).toBe('Vet');
+    });
+  });
+
   describe('résolution des activités ciblées', () => {
     it('utilise findById quand activiteId est fourni, sans appeler findUpcoming', async () => {
       const activite = makeActivite({ id: 'activite-ciblee' });
@@ -403,6 +458,57 @@ describe('ConsulterDisponibilitesEffectifUseCase', () => {
         '2026-08-01',
         '2026-08-02',
       ]);
+    });
+  });
+
+  describe('non-régression — activités sans date (cf. spec pour-grer-les-activits-il-faut-pouvoir-bouger-lactivit-dune-)', () => {
+    it("exclut une activité sans date (date undefined) du résultat, même si elle est renvoyée par findUpcoming", async () => {
+      const activiteAvecDate = makeActivite({ id: 'avec-date', date: '2026-07-20' });
+      const activiteSansDate = makeActivite({ id: 'sans-date', date: undefined });
+      const utilisateur = makeUtilisateur();
+
+      const { useCase } = makeUseCase({
+        activiteRepository: {
+          findUpcoming: jest.fn().mockResolvedValue([activiteAvecDate, activiteSansDate]),
+        },
+        utilisateurRepository: {
+          findAll: jest.fn().mockResolvedValue([utilisateur]),
+        },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.activites.map((a) => a.id)).toEqual(['avec-date']);
+      expect(result.joueurs[0].disponibilites).not.toHaveProperty('sans-date');
+    });
+
+    it("exclut une activité sans date ciblée explicitement via activiteId (cas limite : activité non encore planifiée)", async () => {
+      const activiteSansDate = makeActivite({ id: 'cible-sans-date', date: undefined });
+
+      const { useCase } = makeUseCase({
+        activiteRepository: {
+          findById: jest.fn().mockResolvedValue(activiteSansDate),
+        },
+      });
+
+      const result = await useCase.execute({ activiteId: 'cible-sans-date' });
+
+      expect(result.activites).toEqual([]);
+    });
+
+    it("n'appelle pas findByDates/findByActiviteIds avec l'id d'une activité sans date écartée", async () => {
+      const activiteSansDate = makeActivite({ id: 'sans-date', date: undefined });
+
+      const { useCase, disponibiliteJourneeRepository, disponibiliteActiviteRepository } = makeUseCase({
+        activiteRepository: {
+          findUpcoming: jest.fn().mockResolvedValue([activiteSansDate]),
+        },
+      });
+
+      await useCase.execute({});
+
+      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith([]);
+      expect(disponibiliteActiviteRepository.findByActiviteIds).toHaveBeenCalledWith([]);
     });
   });
 });

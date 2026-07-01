@@ -28,14 +28,18 @@ export class ModifierActiviteUseCase {
       dto.heureDebut === undefined &&
       dto.label === undefined &&
       dto.type === undefined &&
-      dto.commentaire === undefined;
+      dto.commentaire === undefined &&
+      dto.lieu === undefined &&
+      dto.equipe === undefined;
     if (aucunChamp) {
       throw new BadRequestException("Aucun champ à modifier n'a été fourni");
     }
 
     const fusionnee: Activite = {
       ...existante,
-      ...(dto.date !== undefined && { date: dto.date }),
+      // `date`/`equipe` : tri-état — `undefined` = non modifié, `null` = retrait explicite
+      // (ex. déplacement colonne droite → gauche), valeur = assignation.
+      ...(dto.date !== undefined && { date: dto.date ?? undefined }),
       ...(dto.heureConvocation !== undefined && {
         heureConvocation: dto.heureConvocation,
       }),
@@ -43,6 +47,8 @@ export class ModifierActiviteUseCase {
       ...(dto.label !== undefined && { label: dto.label }),
       ...(dto.type !== undefined && { type: dto.type }),
       ...(dto.commentaire !== undefined && { commentaire: dto.commentaire }),
+      ...(dto.lieu !== undefined && { lieu: dto.lieu }),
+      ...(dto.equipe !== undefined && { equipe: dto.equipe ?? undefined }),
     };
 
     if (fusionnee.heureDebut < fusionnee.heureConvocation) {

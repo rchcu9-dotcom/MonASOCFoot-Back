@@ -8,6 +8,7 @@ import type { ImporterMatchsDistrictUseCase } from '../../../application/activit
 import type { ListerActivitesUseCase } from '../../../application/activite/use-cases/lister-activites.use-case';
 import type { ModifierActiviteUseCase } from '../../../application/activite/use-cases/modifier-activite.use-case';
 import type { SupprimerActiviteUseCase } from '../../../application/activite/use-cases/supprimer-activite.use-case';
+import type { ConsulterPlanificationActivitesUseCase } from '../../../application/activite/use-cases/consulter-planification-activites.use-case';
 import type { ImportMatchsResultatDto } from '../../../application/activite/dto/import-matchs-resultat.dto';
 
 function makeActivite(overrides: Partial<Activite> = {}): Activite {
@@ -40,6 +41,7 @@ function makeController(overrides: {
   modifier?: jest.Mock;
   supprimer?: jest.Mock;
   importerDistrict?: jest.Mock;
+  planification?: jest.Mock;
 } = {}) {
   const listerActivitesUseCase = {
     execute: overrides.lister ?? jest.fn().mockResolvedValue([]),
@@ -56,6 +58,9 @@ function makeController(overrides: {
   const importerMatchsDistrictUseCase = {
     execute: overrides.importerDistrict ?? jest.fn().mockResolvedValue(makeImportResultat()),
   } as unknown as ImporterMatchsDistrictUseCase;
+  const consulterPlanificationActivitesUseCase = {
+    execute: overrides.planification ?? jest.fn().mockResolvedValue({ sansDate: [], calendrier: [] }),
+  } as unknown as ConsulterPlanificationActivitesUseCase;
 
   const controller = new ActivitesController(
     listerActivitesUseCase,
@@ -63,6 +68,7 @@ function makeController(overrides: {
     modifierActiviteUseCase,
     supprimerActiviteUseCase,
     importerMatchsDistrictUseCase,
+    consulterPlanificationActivitesUseCase,
   );
 
   return {
@@ -72,6 +78,7 @@ function makeController(overrides: {
     modifierActiviteUseCase,
     supprimerActiviteUseCase,
     importerMatchsDistrictUseCase,
+    consulterPlanificationActivitesUseCase,
   };
 }
 
@@ -99,6 +106,12 @@ describe('ActivitesController', () => {
         Reflect.getMetadata(REQUIRE_ADMIN_KEY, ActivitesController.prototype.importerDistrict),
       ).toBe(true);
     });
+
+    it('GET /activites/planification requiert RequireAdmin (page de planification réservée aux admins)', () => {
+      expect(
+        Reflect.getMetadata(REQUIRE_ADMIN_KEY, ActivitesController.prototype.findPlanification),
+      ).toBe(true);
+    });
   });
 
   describe('findAll', () => {
@@ -112,6 +125,42 @@ describe('ActivitesController', () => {
 
       expect(listerActivitesUseCase.execute).toHaveBeenCalledTimes(1);
       expect(result).toEqual([activite]);
+    });
+  });
+
+  describe('findPlanification', () => {
+    it('délègue à ConsulterPlanificationActivitesUseCase et mappe sansDate/calendrier en ActiviteDto[]', async () => {
+      const activiteSansDate = makeActivite({ id: 'sd1', date: undefined });
+      const activiteCalendrier = makeActivite({ id: 'cal1' });
+      const { controller, consulterPlanificationActivitesUseCase } = makeController({
+        planification: jest
+          .fn()
+          .mockResolvedValue({ sansDate: [activiteSansDate], calendrier: [activiteCalendrier] }),
+      });
+
+      const result = await controller.findPlanification(undefined);
+
+      expect(consulterPlanificationActivitesUseCase.execute).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual({
+        sansDate: [activiteSansDate],
+        calendrier: [activiteCalendrier],
+      });
+    });
+
+    it('convertit la query string "semaines" en nombre avant de la transmettre au use case', async () => {
+      const { controller, consulterPlanificationActivitesUseCase } = makeController();
+
+      await controller.findPlanification('12');
+
+      expect(consulterPlanificationActivitesUseCase.execute).toHaveBeenCalledWith(12);
+    });
+
+    it('transmet undefined au use case quand "semaines" n\'est pas fourni dans la query', async () => {
+      const { controller, consulterPlanificationActivitesUseCase } = makeController();
+
+      await controller.findPlanification(undefined);
+
+      expect(consulterPlanificationActivitesUseCase.execute).toHaveBeenCalledWith(undefined);
     });
   });
 

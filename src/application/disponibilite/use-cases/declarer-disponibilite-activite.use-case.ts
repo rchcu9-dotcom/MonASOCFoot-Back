@@ -67,7 +67,10 @@ export function resoudreUtilisateurCible(
   utilisateurIdDemande: string | undefined,
   utilisateurConnecte: Utilisateur,
 ): string {
-  if (!utilisateurIdDemande || utilisateurIdDemande === utilisateurConnecte.id) {
+  if (
+    !utilisateurIdDemande ||
+    utilisateurIdDemande === utilisateurConnecte.id
+  ) {
     return utilisateurConnecte.id;
   }
 

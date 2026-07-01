@@ -37,16 +37,24 @@ enum RoleUtilisateur {
 
 model Activite {
   id               String         @id @default(uuid())
-  date             String
+  /// Nullable depuis `pour-grer-les-activits-il-faut-pouvoir-bouger-lactivit-dune-` : une
+  /// activité peut être créée/exister sans date assignée (colonne « Sans date » de la
+  /// planification admin), tant qu'elle n'a pas été glissée sur une date du calendrier.
+  date             String?
   heureConvocation String
   heureDebut       String
   label            String
   type             TypeActivite
   commentaire      String?        @db.Text
+  /// Lieu de l'activité (stade, salle…), nullable — cf. spec
+  /// sur-la-page-dtail-dune-cration-dactivit-mettre-par-dfaut-heu.
+  lieu             String?
   source           SourceActivite @default(manuel)
   /// Identifiant stable côté site du district — clé de dédup pour l'import automatique
   /// (cf. spec import-matchs-site-district). Null pour les activités saisies manuellement.
   idExterne        String?        @unique
+  /// Équipe du club concernée (A/B/Vét), nullable — ex. une AG ou un barbecue n'en a pas.
+  equipe           EquipeClub?
 
   disponibilitesActivite DisponibiliteActivite[]
 
@@ -61,6 +69,12 @@ enum TypeActivite {
 enum SourceActivite {
   manuel
   import
+}
+
+enum EquipeClub {
+  A
+  B
+  Vet
 }
 
 model DisponibiliteJournee {

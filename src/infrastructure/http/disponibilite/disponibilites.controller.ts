@@ -19,7 +19,9 @@ import {
   DisponibiliteJourneeDto,
   toDisponibiliteJourneeDto,
 } from "../../../application/disponibilite/dto/disponibilite-journee.dto";
+import { ResumeAccueilDto } from "../../../application/disponibilite/dto/resume-accueil.dto";
 import { ConsulterDisponibilitesEffectifUseCase } from "../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case";
+import { ConsulterResumeAccueilUseCase } from "../../../application/disponibilite/use-cases/consulter-resume-accueil.use-case";
 import { DeclarerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case";
 import { DeclarerDisponibiliteJourneeUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case";
 import { ListerMesDisponibilitesJourneeUseCase } from "../../../application/disponibilite/use-cases/lister-mes-disponibilites-journee.use-case";
@@ -36,6 +38,7 @@ export class DisponibilitesController {
     private readonly supprimerDisponibiliteActiviteUseCase: SupprimerDisponibiliteActiviteUseCase,
     private readonly declarerDisponibiliteJourneeUseCase: DeclarerDisponibiliteJourneeUseCase,
     private readonly listerMesDisponibilitesJourneeUseCase: ListerMesDisponibilitesJourneeUseCase,
+    private readonly consulterResumeAccueilUseCase: ConsulterResumeAccueilUseCase,
   ) {}
 
   @Get("effectif")
@@ -50,6 +53,14 @@ export class DisponibilitesController {
     });
   }
 
+  @Get("resume-accueil")
+  @RequireAuth()
+  async getResumeAccueil(
+    @CurrentUser() utilisateurConnecte: Utilisateur,
+  ): Promise<ResumeAccueilDto> {
+    return this.consulterResumeAccueilUseCase.execute(utilisateurConnecte);
+  }
+
   @Put("activite/:activiteId")
   @RequireAuth()
   async declarerDisponibiliteActivite(
@@ -57,11 +68,12 @@ export class DisponibilitesController {
     @Body() dto: DeclarerDisponibiliteActiviteDto,
     @CurrentUser() utilisateurConnecte: Utilisateur,
   ): Promise<DisponibiliteActiviteDto> {
-    const disponibilite = await this.declarerDisponibiliteActiviteUseCase.execute(
-      activiteId,
-      dto,
-      utilisateurConnecte,
-    );
+    const disponibilite =
+      await this.declarerDisponibiliteActiviteUseCase.execute(
+        activiteId,
+        dto,
+        utilisateurConnecte,
+      );
     return toDisponibiliteActiviteDto(disponibilite);
   }
 
@@ -85,9 +97,10 @@ export class DisponibilitesController {
   async listerMesDisponibilitesJournee(
     @CurrentUser() utilisateurConnecte: Utilisateur,
   ): Promise<DisponibiliteJourneeDto[]> {
-    const disponibilites = await this.listerMesDisponibilitesJourneeUseCase.execute(
-      utilisateurConnecte,
-    );
+    const disponibilites =
+      await this.listerMesDisponibilitesJourneeUseCase.execute(
+        utilisateurConnecte,
+      );
     return disponibilites.map(toDisponibiliteJourneeDto);
   }
 
@@ -98,11 +111,12 @@ export class DisponibilitesController {
     @Body() dto: DeclarerDisponibiliteJourneeDto,
     @CurrentUser() utilisateurConnecte: Utilisateur,
   ): Promise<DisponibiliteJourneeDto> {
-    const disponibilite = await this.declarerDisponibiliteJourneeUseCase.execute(
-      date,
-      dto,
-      utilisateurConnecte,
-    );
+    const disponibilite =
+      await this.declarerDisponibiliteJourneeUseCase.execute(
+        date,
+        dto,
+        utilisateurConnecte,
+      );
     return toDisponibiliteJourneeDto(disponibilite);
   }
 }

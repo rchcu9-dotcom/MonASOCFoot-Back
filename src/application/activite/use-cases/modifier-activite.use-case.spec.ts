@@ -91,6 +91,51 @@ describe('ModifierActiviteUseCase', () => {
     expect(result.commentaire).toBe('');
   });
 
+  it('modifie uniquement le lieu quand seul ce champ est fourni, sans toucher au reste', async () => {
+    const existante = makeActivite({ lieu: 'Ancien lieu', label: 'Match amical' });
+    const { useCase, activiteRepository } = makeUseCase({
+      findById: jest.fn().mockResolvedValue(existante),
+    });
+
+    const result = await useCase.execute('activite-1', { lieu: 'Stade municipal' });
+
+    expect(result.lieu).toBe('Stade municipal');
+    expect(result.label).toBe('Match amical');
+    expect(activiteRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ lieu: 'Stade municipal' }),
+    );
+  });
+
+  it("ne modifie pas le lieu quand le champ est absent du DTO", async () => {
+    const existante = makeActivite({ lieu: 'Stade municipal' });
+    const { useCase } = makeUseCase({ findById: jest.fn().mockResolvedValue(existante) });
+
+    const result = await useCase.execute('activite-1', { label: 'Nouveau label' });
+
+    expect(result.lieu).toBe('Stade municipal');
+  });
+
+  it('permet de vider le lieu en transmettant une chaîne vide (différent de undefined)', async () => {
+    const existante = makeActivite({ lieu: 'Stade municipal' });
+    const { useCase } = makeUseCase({ findById: jest.fn().mockResolvedValue(existante) });
+
+    const result = await useCase.execute('activite-1', { lieu: '' });
+
+    expect(result.lieu).toBe('');
+  });
+
+  it("considère qu'un DTO contenant seulement \"lieu\" est un champ fourni (ne lève pas BadRequestException pour absence de champ)", async () => {
+    const existante = makeActivite();
+    const { useCase, activiteRepository } = makeUseCase({
+      findById: jest.fn().mockResolvedValue(existante),
+    });
+
+    const result = await useCase.execute('activite-1', { lieu: 'Stade municipal' });
+
+    expect(result.lieu).toBe('Stade municipal');
+    expect(activiteRepository.save).toHaveBeenCalled();
+  });
+
   it('revalide heureDebut >= heureConvocation sur le résultat fusionné (heureConvocation modifiée seule)', async () => {
     const existante = makeActivite({ heureConvocation: '10:00', heureDebut: '11:00' });
     const { useCase, activiteRepository } = makeUseCase({
@@ -136,5 +181,85 @@ describe('ModifierActiviteUseCase', () => {
     const result = await useCase.execute('activite-1', { label: 'Nouveau label' });
 
     expect(result).toBe(activitePersistee);
+  });
+
+  describe('tri-état sur "date" (déplacement colonne droite ↔ gauche)', () => {
+    it('retire la date quand "date" est fourni explicitement à null (déplacement vers "sans date")', async () => {
+      const existante = makeActivite({ date: '2026-07-01' });
+      const { useCase, activiteRepository } = makeUseCase({
+        findById: jest.fn().mockResolvedValue(existante),
+      });
+
+      const result = await useCase.execute('activite-1', { date: null });
+
+      expect(result.date).toBeUndefined();
+      expect(activiteRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ date: undefined }),
+      );
+    });
+
+    it('ne modifie pas la date quand le champ "date" est absent du DTO (undefined)', async () => {
+      const existante = makeActivite({ date: '2026-07-01' });
+      const { useCase } = makeUseCase({ findById: jest.fn().mockResolvedValue(existante) });
+
+      const result = await useCase.execute('activite-1', { label: 'Nouveau label' });
+
+      expect(result.date).toBe('2026-07-01');
+    });
+
+    it('assigne une nouvelle date à une activité qui n\'en avait pas (déplacement "sans date" → calendrier)', async () => {
+      const existante = makeActivite({ date: undefined });
+      const { useCase } = makeUseCase({ findById: jest.fn().mockResolvedValue(existante) });
+
+      const result = await useCase.execute('activite-1', { date: '2026-09-01' });
+
+      expect(result.date).toBe('2026-09-01');
+    });
+  });
+
+  describe('tri-état sur "equipe"', () => {
+    it('assigne "equipe" quand fourni avec une valeur', async () => {
+      const existante = makeActivite({ equipe: undefined });
+      const { useCase } = makeUseCase({ findById: jest.fn().mockResolvedValue(existante) });
+
+      const result = await useCase.execute('activite-1', { equipe: 'A' });
+
+      expect(result.equipe).toBe('A');
+    });
+
+    it('retire "equipe" quand fourni explicitement à null', async () => {
+      const existante = makeActivite({ equipe: 'A' });
+      const { useCase, activiteRepository } = makeUseCase({
+        findById: jest.fn().mockResolvedValue(existante),
+      });
+
+      const result = await useCase.execute('activite-1', { equipe: null });
+
+      expect(result.equipe).toBeUndefined();
+      expect(activiteRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ equipe: undefined }),
+      );
+    });
+
+    it('ne modifie pas "equipe" quand le champ est absent du DTO', async () => {
+      const existante = makeActivite({ equipe: 'Vet' });
+      const { useCase } = makeUseCase({ findById: jest.fn().mockResolvedValue(existante) });
+
+      const result = await useCase.execute('activite-1', { label: 'Nouveau label' });
+
+      expect(result.equipe).toBe('Vet');
+    });
+  });
+
+  it('considère qu\'un DTO contenant seulement "date: null" est un champ fourni (ne lève pas BadRequestException pour absence de champ)', async () => {
+    const existante = makeActivite({ date: '2026-07-01' });
+    const { useCase, activiteRepository } = makeUseCase({
+      findById: jest.fn().mockResolvedValue(existante),
+    });
+
+    const result = await useCase.execute('activite-1', { date: null });
+
+    expect(result.date).toBeUndefined();
+    expect(activiteRepository.save).toHaveBeenCalled();
   });
 });
