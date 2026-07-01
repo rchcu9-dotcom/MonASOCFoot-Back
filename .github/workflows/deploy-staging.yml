@@ -1,0 +1,93 @@
+name: Deploy Backend to Azure Container Apps (staging)
+
+on:
+  push:
+    branches: [staging]
+
+env:
+  ACR_NAME: acrmonasocfoot
+  ACR_LOGIN_SERVER: acrmonasocfoot.azurecr.io
+  IMAGE_NAME: monasocfoot-back
+  CONTAINER_APP_NAME: monasocfoot-back
+  RESOURCE_GROUP: rg-monasocfoot-staging
+  TAG: staging-${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm prisma:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name $ACR_NAME
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --no-cache \
+            -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG \
+            .
+
+      - name: Push Docker image
+        run: docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG
+
+      - name: Deploy to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name $CONTAINER_APP_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG
+
+      - name: Wait for container readiness
+        env:
+          API_BASE_URL: https://monasocfoot-back.livelyhill-f7bd7b17.westeurope.azurecontainerapps.io
+        run: |
+          echo "Waiting for container to be ready (KEDA cold start)..."
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$API_BASE_URL/health" || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Container ready."
+              break
+            fi
+            if [ "$i" = "10" ]; then
+              echo "Container did not become ready in time."
+              exit 1
+            fi
+            sleep 25
+          done
+
+      - name: Smoke test
+        env:
+          API_BASE_URL: https://monasocfoot-back.livelyhill-f7bd7b17.westeurope.azurecontainerapps.io
+        run: curl -f --max-time 30 "$API_BASE_URL/health"
