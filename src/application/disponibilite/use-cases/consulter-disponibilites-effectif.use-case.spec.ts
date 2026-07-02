@@ -43,6 +43,7 @@ function makeUseCase(overrides: {
     findById: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
     findUpcoming: jest.fn().mockResolvedValue([]),
+    findDernierePassee: jest.fn().mockResolvedValue(null),
     ...overrides.activiteRepository,
   } as unknown as ActiviteRepository;
 
@@ -50,8 +51,6 @@ function makeUseCase(overrides: {
     findAll: jest.fn().mockResolvedValue([]),
     findById: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
-    findByProviderId: jest.fn().mockResolvedValue(null),
-    updateRole: jest.fn(),
     ...overrides.utilisateurRepository,
   } as unknown as UtilisateurRepository;
 
@@ -88,234 +87,35 @@ function makeUseCase(overrides: {
 }
 
 describe('ConsulterDisponibilitesEffectifUseCase', () => {
-  describe('priorité de résolution de la disponibilité effective', () => {
-    it('priorise la DisponibiliteActivite quand elle existe, même si une DisponibiliteJournee existe aussi', async () => {
-      const activite = makeActivite();
-      const utilisateur = makeUtilisateur();
-      const disponibiliteJournee: DisponibiliteJournee = {
-        id: 'dj-1',
-        utilisateurId: utilisateur.id,
-        date: activite.date,
-        statut: 'absent',
-      };
-      const disponibiliteActivite: DisponibiliteActivite = {
-        id: 'da-1',
-        utilisateurId: utilisateur.id,
-        activiteId: activite.id,
-        statut: 'present',
-        commentaire: 'Je viendrai en retard',
-      };
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-        disponibiliteJourneeRepository: {
-          findByDates: jest.fn().mockResolvedValue([disponibiliteJournee]),
-        },
-        disponibiliteActiviteRepository: {
-          findByActiviteIds: jest.fn().mockResolvedValue([disponibiliteActivite]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.joueurs).toHaveLength(1);
-      expect(result.joueurs[0].disponibilites[activite.id]).toEqual({
-        statut: 'present',
-        commentaire: 'Je viendrai en retard',
-        source: 'activite',
-      });
-    });
-
-    it('retombe sur la DisponibiliteJournee quand aucune DisponibiliteActivite n\'existe', async () => {
-      const activite = makeActivite();
-      const utilisateur = makeUtilisateur();
-      const disponibiliteJournee: DisponibiliteJournee = {
-        id: 'dj-1',
-        utilisateurId: utilisateur.id,
-        date: activite.date,
-        statut: 'disponible',
-        commentaire: 'Dispo toute la journée',
-      };
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-        disponibiliteJourneeRepository: {
-          findByDates: jest.fn().mockResolvedValue([disponibiliteJournee]),
-        },
-        disponibiliteActiviteRepository: {
-          findByActiviteIds: jest.fn().mockResolvedValue([]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.joueurs[0].disponibilites[activite.id]).toEqual({
-        statut: 'disponible',
-        commentaire: 'Dispo toute la journée',
-        source: 'journee',
-      });
-    });
-
-    it('renvoie source "aucune" quand ni DisponibiliteActivite ni DisponibiliteJournee n\'existent', async () => {
-      const activite = makeActivite();
-      const utilisateur = makeUtilisateur();
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.joueurs[0].disponibilites[activite.id]).toEqual({
-        statut: 'autre',
-        source: 'aucune',
-      });
-    });
-
-    it("n'associe pas par erreur une DisponibiliteActivite d'un autre utilisateur", async () => {
-      const activite = makeActivite();
-      const utilisateur = makeUtilisateur({ id: 'user-cible' });
-      const disponibiliteActiviteAutreUtilisateur: DisponibiliteActivite = {
-        id: 'da-1',
-        utilisateurId: 'autre-utilisateur',
-        activiteId: activite.id,
-        statut: 'present',
-      };
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-        disponibiliteActiviteRepository: {
-          findByActiviteIds: jest.fn().mockResolvedValue([disponibiliteActiviteAutreUtilisateur]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.joueurs[0].disponibilites[activite.id].source).toBe('aucune');
-    });
-  });
-
-  describe('passthrough des champs equipe/commentaire (ActiviteColonneDto)', () => {
-    it("transmet equipe et commentaire de l'activité dans ActiviteColonneDto quand ils sont renseignés", async () => {
-      const activite = makeActivite({
-        id: 'activite-equipe-a',
-        equipe: 'A',
-        commentaire: 'Apporter les maillots',
-      });
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.activites[0]).toEqual(
-        expect.objectContaining({
-          id: 'activite-equipe-a',
-          equipe: 'A',
-          commentaire: 'Apporter les maillots',
-        }),
-      );
-    });
-
-    it("laisse equipe et commentaire indéfinis dans ActiviteColonneDto quand l'activité ne les porte pas", async () => {
-      const activite = makeActivite({ id: 'activite-sans-equipe' });
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.activites[0].equipe).toBeUndefined();
-      expect(result.activites[0].commentaire).toBeUndefined();
-    });
-
-    it('transmet equipe via la résolution par activiteId (findById)', async () => {
-      const activite = makeActivite({ id: 'activite-ciblee', equipe: 'Vet' });
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findById: jest.fn().mockResolvedValue(activite),
-        },
-      });
-
-      const result = await useCase.execute({ activiteId: 'activite-ciblee' });
-
-      expect(result.activites[0].equipe).toBe('Vet');
-    });
-  });
-
-  describe('résolution des activités ciblées', () => {
-    it('utilise findById quand activiteId est fourni, sans appeler findUpcoming', async () => {
-      const activite = makeActivite({ id: 'activite-ciblee' });
-
+  describe('résolution des activités (sans filtre, par activiteId, par date)', () => {
+    it("sans filtre, renvoie toutes les activités à venir depuis aujourd'hui (ISO yyyy-mm-dd)", async () => {
+      const activites = [makeActivite({ id: 'a1' })];
       const { useCase, activiteRepository } = makeUseCase({
-        activiteRepository: {
-          findById: jest.fn().mockResolvedValue(activite),
-        },
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(activites) },
       });
 
-      const result = await useCase.execute({ activiteId: 'activite-ciblee' });
+      const result = await useCase.execute({});
 
-      expect(activiteRepository.findById).toHaveBeenCalledWith('activite-ciblee');
-      expect(activiteRepository.findUpcoming).not.toHaveBeenCalled();
-      expect(result.activites).toEqual([
-        {
-          id: activite.id,
-          date: activite.date,
-          heureConvocation: activite.heureConvocation,
-          heureDebut: activite.heureDebut,
-          label: activite.label,
-          type: activite.type,
-        },
-      ]);
+      const aujourdHui = new Date().toISOString().slice(0, 10);
+      expect(activiteRepository.findUpcoming).toHaveBeenCalledWith(aujourdHui);
+      expect(result.activites.map((a) => a.id)).toEqual(['a1']);
     });
 
-    it("activiteId prévaut sur date quand les deux sont fournis", async () => {
-      const activite = makeActivite({ id: 'activite-ciblee' });
-
+    it('avec activiteId, ne renvoie que cette activité (findById)', async () => {
+      const activite = makeActivite({ id: 'cible' });
       const { useCase, activiteRepository } = makeUseCase({
-        activiteRepository: {
-          findById: jest.fn().mockResolvedValue(activite),
-        },
+        activiteRepository: { findById: jest.fn().mockResolvedValue(activite) },
       });
 
-      await useCase.execute({ activiteId: 'activite-ciblee', date: '2026-07-09' });
+      const result = await useCase.execute({ activiteId: 'cible' });
 
-      expect(activiteRepository.findById).toHaveBeenCalledWith('activite-ciblee');
-      expect(activiteRepository.findUpcoming).not.toHaveBeenCalled();
+      expect(activiteRepository.findById).toHaveBeenCalledWith('cible');
+      expect(result.activites.map((a) => a.id)).toEqual(['cible']);
     });
 
-    it("renvoie une liste d'activités vide quand activiteId ne correspond à aucune activité", async () => {
+    it("avec activiteId introuvable, renvoie une liste d'activités vide", async () => {
       const { useCase } = makeUseCase({
-        activiteRepository: {
-          findById: jest.fn().mockResolvedValue(null),
-        },
+        activiteRepository: { findById: jest.fn().mockResolvedValue(null) },
       });
 
       const result = await useCase.execute({ activiteId: 'inconnue' });
@@ -323,192 +123,162 @@ describe('ConsulterDisponibilitesEffectifUseCase', () => {
       expect(result.activites).toEqual([]);
     });
 
-    it('filtre en mémoire les activités à venir par date quand seul "date" est fourni', async () => {
-      const activiteJourCible = makeActivite({ id: 'a1', date: '2026-07-10' });
-      const activiteAutreJour = makeActivite({ id: 'a2', date: '2026-07-11' });
-
-      const { useCase, activiteRepository } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activiteJourCible, activiteAutreJour]),
-        },
+    it('avec date, ne renvoie que les activités correspondant à cette date exacte', async () => {
+      const activites = [
+        makeActivite({ id: 'a1', date: '2026-07-01' }),
+        makeActivite({ id: 'a2', date: '2026-07-08' }),
+      ];
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(activites) },
       });
 
-      const result = await useCase.execute({ date: '2026-07-10' });
+      const result = await useCase.execute({ date: '2026-07-01' });
 
-      expect(activiteRepository.findUpcoming).toHaveBeenCalledWith('');
       expect(result.activites.map((a) => a.id)).toEqual(['a1']);
     });
 
-    it("appelle findUpcoming avec la date du jour (ISO yyyy-mm-dd) quand aucun filtre n'est fourni", async () => {
-      const { useCase, activiteRepository } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([]),
-        },
-      });
-
-      await useCase.execute({});
-
-      const aujourdHui = new Date().toISOString().slice(0, 10);
-      expect(activiteRepository.findUpcoming).toHaveBeenCalledWith(aujourdHui);
-    });
-
-    it('gère plusieurs activités à la même date avec des disponibilités de journée et activité distinctes', async () => {
-      const activite1 = makeActivite({ id: 'a1', date: '2026-07-15', label: 'Entraînement' });
-      const activite2 = makeActivite({ id: 'a2', date: '2026-07-15', label: 'Match' });
-      const utilisateur = makeUtilisateur();
-      const disponibiliteJournee: DisponibiliteJournee = {
-        id: 'dj-1',
-        utilisateurId: utilisateur.id,
-        date: '2026-07-15',
-        statut: 'disponible',
-      };
-      const disponibiliteActiviteSurA2: DisponibiliteActivite = {
-        id: 'da-1',
-        utilisateurId: utilisateur.id,
-        activiteId: 'a2',
-        statut: 'absent',
-        commentaire: 'Empêché pour le match uniquement',
-      };
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite1, activite2]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-        disponibiliteJourneeRepository: {
-          findByDates: jest.fn().mockResolvedValue([disponibiliteJournee]),
-        },
-        disponibiliteActiviteRepository: {
-          findByActiviteIds: jest.fn().mockResolvedValue([disponibiliteActiviteSurA2]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.joueurs[0].disponibilites['a1']).toEqual({
-        statut: 'disponible',
-        commentaire: undefined,
-        source: 'journee',
-      });
-      expect(result.joueurs[0].disponibilites['a2']).toEqual({
-        statut: 'absent',
-        commentaire: 'Empêché pour le match uniquement',
-        source: 'activite',
-      });
-    });
-  });
-
-  describe('cas limites', () => {
-    it("renvoie une liste de joueurs vide quand aucun utilisateur n'existe", async () => {
-      const activite = makeActivite();
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.joueurs).toEqual([]);
-      expect(result.activites).toHaveLength(1);
-    });
-
-    it("renvoie une liste d'activités vide et des joueurs sans disponibilités quand aucune activité n'existe", async () => {
-      const utilisateur = makeUtilisateur();
-
-      const { useCase, disponibiliteJourneeRepository, disponibiliteActiviteRepository } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.activites).toEqual([]);
-      expect(result.joueurs).toEqual([
-        { utilisateurId: utilisateur.id, displayName: utilisateur.displayName, disponibilites: {} },
-      ]);
-      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith([]);
-      expect(disponibiliteActiviteRepository.findByActiviteIds).toHaveBeenCalledWith([]);
-    });
-
-    it('déduplique les dates distinctes transmises à findByDates quand plusieurs activités partagent la même date', async () => {
-      const activite1 = makeActivite({ id: 'a1', date: '2026-08-01' });
-      const activite2 = makeActivite({ id: 'a2', date: '2026-08-01' });
-      const activite3 = makeActivite({ id: 'a3', date: '2026-08-02' });
-
-      const { useCase, disponibiliteJourneeRepository } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activite1, activite2, activite3]),
-        },
-      });
-
-      await useCase.execute({});
-
-      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith([
-        '2026-08-01',
-        '2026-08-02',
-      ]);
-    });
-  });
-
-  describe('non-régression — activités sans date (cf. spec pour-grer-les-activits-il-faut-pouvoir-bouger-lactivit-dune-)', () => {
-    it("exclut une activité sans date (date undefined) du résultat, même si elle est renvoyée par findUpcoming", async () => {
-      const activiteAvecDate = makeActivite({ id: 'avec-date', date: '2026-07-20' });
+    it("exclut une activité sans date renvoyée par erreur par resoudreActivites (garde défensive)", async () => {
+      const activiteAvecDate = makeActivite({ id: 'avec-date', date: '2026-07-01' });
       const activiteSansDate = makeActivite({ id: 'sans-date', date: undefined });
-      const utilisateur = makeUtilisateur();
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activiteAvecDate, activiteSansDate]),
-        },
-        utilisateurRepository: {
-          findAll: jest.fn().mockResolvedValue([utilisateur]),
-        },
-      });
-
-      const result = await useCase.execute({});
-
-      expect(result.activites.map((a) => a.id)).toEqual(['avec-date']);
-      expect(result.joueurs[0].disponibilites).not.toHaveProperty('sans-date');
-    });
-
-    it("exclut une activité sans date ciblée explicitement via activiteId (cas limite : activité non encore planifiée)", async () => {
-      const activiteSansDate = makeActivite({ id: 'cible-sans-date', date: undefined });
-
       const { useCase } = makeUseCase({
         activiteRepository: {
           findById: jest.fn().mockResolvedValue(activiteSansDate),
         },
       });
-
-      const result = await useCase.execute({ activiteId: 'cible-sans-date' });
-
+      // Cas limite documenté dans le code : `activiteId` peut cibler une activité non planifiée.
+      const result = await useCase.execute({ activiteId: 'sans-date' });
       expect(result.activites).toEqual([]);
+
+      const { useCase: useCase2 } = makeUseCase({
+        activiteRepository: {
+          findUpcoming: jest.fn().mockResolvedValue([activiteAvecDate]),
+        },
+      });
+      const result2 = await useCase2.execute({});
+      expect(result2.activites.map((a) => a.id)).toEqual(['avec-date']);
+    });
+  });
+
+  describe('grille joueurs x activités', () => {
+    it('renvoie une ligne par utilisateur, avec une entrée de disponibilité par activité', async () => {
+      const activites = [makeActivite({ id: 'a1' }), makeActivite({ id: 'a2', date: '2026-07-08' })];
+      const utilisateurs = [makeUtilisateur({ id: 'u1' }), makeUtilisateur({ id: 'u2' })];
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(activites) },
+        utilisateurRepository: { findAll: jest.fn().mockResolvedValue(utilisateurs) },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.joueurs).toHaveLength(2);
+      expect(Object.keys(result.joueurs[0].disponibilites).sort()).toEqual(['a1', 'a2']);
     });
 
-    it("n'appelle pas findByDates/findByActiviteIds avec l'id d'une activité sans date écartée", async () => {
-      const activiteSansDate = makeActivite({ id: 'sans-date', date: undefined });
+    it("résout le statut 'pas renseigné' (source aucune) pour une activité sans déclaration", async () => {
+      const activite = makeActivite({ id: 'a1' });
+      const utilisateur = makeUtilisateur();
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue([activite]) },
+        utilisateurRepository: { findAll: jest.fn().mockResolvedValue([utilisateur]) },
+      });
 
-      const { useCase, disponibiliteJourneeRepository, disponibiliteActiviteRepository } = makeUseCase({
-        activiteRepository: {
-          findUpcoming: jest.fn().mockResolvedValue([activiteSansDate]),
+      const result = await useCase.execute({});
+
+      expect(result.joueurs[0].disponibilites.a1).toEqual({ statut: 'autre', source: 'aucune' });
+    });
+
+    it('la surcharge de disponibilité activité prime sur la disponibilité de journée', async () => {
+      const activite = makeActivite({ id: 'a1', date: '2026-07-01' });
+      const utilisateur = makeUtilisateur({ id: 'u1' });
+      const surcharge: DisponibiliteActivite = {
+        id: 'da-1',
+        utilisateurId: 'u1',
+        activiteId: 'a1',
+        statut: 'present',
+      };
+      const dispoJournee: DisponibiliteJournee = {
+        id: 'dj-1',
+        utilisateurId: 'u1',
+        date: '2026-07-01',
+        statut: 'absent',
+      };
+
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue([activite]) },
+        utilisateurRepository: { findAll: jest.fn().mockResolvedValue([utilisateur]) },
+        disponibiliteActiviteRepository: {
+          findByActiviteIds: jest.fn().mockResolvedValue([surcharge]),
+        },
+        disponibiliteJourneeRepository: {
+          findByDates: jest.fn().mockResolvedValue([dispoJournee]),
         },
       });
 
+      const result = await useCase.execute({});
+
+      expect(result.joueurs[0].disponibilites.a1).toEqual({
+        statut: 'present',
+        commentaire: undefined,
+        source: 'activite',
+      });
+    });
+
+    it("n'associe pas par erreur la disponibilité d'un autre utilisateur (isolation par utilisateur)", async () => {
+      const activite = makeActivite({ id: 'a1' });
+      const utilisateurs = [makeUtilisateur({ id: 'u1' }), makeUtilisateur({ id: 'u2' })];
+      const surchargeAutreUtilisateur: DisponibiliteActivite = {
+        id: 'da-1',
+        utilisateurId: 'u2',
+        activiteId: 'a1',
+        statut: 'present',
+      };
+
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue([activite]) },
+        utilisateurRepository: { findAll: jest.fn().mockResolvedValue(utilisateurs) },
+        disponibiliteActiviteRepository: {
+          findByActiviteIds: jest.fn().mockResolvedValue([surchargeAutreUtilisateur]),
+        },
+      });
+
+      const result = await useCase.execute({});
+
+      const ligneU1 = result.joueurs.find((j) => j.utilisateurId === 'u1');
+      expect(ligneU1?.disponibilites.a1.source).toBe('aucune');
+    });
+
+    it("renvoie une grille vide (aucune ligne joueur) quand il n'y a aucun utilisateur", async () => {
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue([makeActivite()]) },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.joueurs).toEqual([]);
+    });
+  });
+
+  describe('appels repositories', () => {
+    it('interroge findByDates/findByActiviteIds avec les dates et ids des activités résolues', async () => {
+      const activites = [
+        makeActivite({ id: 'a1', date: '2026-07-01' }),
+        makeActivite({ id: 'a2', date: '2026-07-08' }),
+      ];
+      const { useCase, disponibiliteJourneeRepository, disponibiliteActiviteRepository } =
+        makeUseCase({
+          activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(activites) },
+        });
+
       await useCase.execute({});
 
-      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith([]);
-      expect(disponibiliteActiviteRepository.findByActiviteIds).toHaveBeenCalledWith([]);
+      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith([
+        '2026-07-01',
+        '2026-07-08',
+      ]);
+      expect(disponibiliteActiviteRepository.findByActiviteIds).toHaveBeenCalledWith([
+        'a1',
+        'a2',
+      ]);
     });
   });
 });

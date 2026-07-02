@@ -17,6 +17,7 @@ export interface LigneJoueurDto {
   disponibilites: Record<string, DisponibiliteEffectiveDto>;
 }
 
+/** Partagé par le résumé accueil (`resume-accueil.dto.ts`) et l'effectif par match (`effectif-match.dto.ts`). */
 export interface ActiviteColonneDto {
   id: string;
   date: string;

@@ -19,8 +19,10 @@ import {
   DisponibiliteJourneeDto,
   toDisponibiliteJourneeDto,
 } from "../../../application/disponibilite/dto/disponibilite-journee.dto";
+import { EffectifMatchResponseDto } from "../../../application/disponibilite/dto/effectif-match.dto";
 import { ResumeAccueilDto } from "../../../application/disponibilite/dto/resume-accueil.dto";
 import { ConsulterDisponibilitesEffectifUseCase } from "../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case";
+import { ConsulterEffectifMatchUseCase } from "../../../application/disponibilite/use-cases/consulter-effectif-match.use-case";
 import { ConsulterResumeAccueilUseCase } from "../../../application/disponibilite/use-cases/consulter-resume-accueil.use-case";
 import { DeclarerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case";
 import { DeclarerDisponibiliteJourneeUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case";
@@ -39,6 +41,7 @@ export class DisponibilitesController {
     private readonly declarerDisponibiliteJourneeUseCase: DeclarerDisponibiliteJourneeUseCase,
     private readonly listerMesDisponibilitesJourneeUseCase: ListerMesDisponibilitesJourneeUseCase,
     private readonly consulterResumeAccueilUseCase: ConsulterResumeAccueilUseCase,
+    private readonly consulterEffectifMatchUseCase: ConsulterEffectifMatchUseCase,
   ) {}
 
   @Get("effectif")
@@ -51,6 +54,14 @@ export class DisponibilitesController {
       date,
       activiteId,
     });
+  }
+
+  @Get("effectif-match")
+  @RequireAuth()
+  async getEffectifMatch(
+    @Query("matchId") matchId?: string,
+  ): Promise<EffectifMatchResponseDto> {
+    return this.consulterEffectifMatchUseCase.execute({ matchId });
   }
 
   @Get("resume-accueil")

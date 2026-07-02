@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConsulterDisponibilitesEffectifUseCase } from "../../../application/disponibilite/use-cases/consulter-disponibilites-effectif.use-case";
+import { ConsulterEffectifMatchUseCase } from "../../../application/disponibilite/use-cases/consulter-effectif-match.use-case";
 import { ConsulterResumeAccueilUseCase } from "../../../application/disponibilite/use-cases/consulter-resume-accueil.use-case";
 import { DeclarerDisponibiliteActiviteUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-activite.use-case";
 import { DeclarerDisponibiliteJourneeUseCase } from "../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case";
@@ -20,6 +21,7 @@ import { DisponibilitesController } from "./disponibilites.controller";
   controllers: [DisponibilitesController],
   providers: [
     ConsulterDisponibilitesEffectifUseCase,
+    ConsulterEffectifMatchUseCase,
     ConsulterResumeAccueilUseCase,
     DeclarerDisponibiliteActiviteUseCase,
     SupprimerDisponibiliteActiviteUseCase,

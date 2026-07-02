@@ -6,6 +6,8 @@ import type { SupprimerDisponibiliteActiviteUseCase } from '../../../application
 import type { DeclarerDisponibiliteJourneeUseCase } from '../../../application/disponibilite/use-cases/declarer-disponibilite-journee.use-case';
 import type { ListerMesDisponibilitesJourneeUseCase } from '../../../application/disponibilite/use-cases/lister-mes-disponibilites-journee.use-case';
 import type { DisponibilitesEffectifResponseDto } from '../../../application/disponibilite/dto/disponibilite-effectif.dto';
+import type { EffectifMatchResponseDto } from '../../../application/disponibilite/dto/effectif-match.dto';
+import type { ConsulterEffectifMatchUseCase } from '../../../application/disponibilite/use-cases/consulter-effectif-match.use-case';
 import type { ResumeAccueilDto } from '../../../application/disponibilite/dto/resume-accueil.dto';
 import type { DeclarerDisponibiliteActiviteDto } from '../../../application/disponibilite/dto/declarer-disponibilite-activite.dto';
 import type { DeclarerDisponibiliteJourneeDto } from '../../../application/disponibilite/dto/declarer-disponibilite-journee.dto';
@@ -32,6 +34,7 @@ function makeController(options: {
   declarerJournee?: jest.Mock;
   listerMesDisponibilitesJournee?: jest.Mock;
   getResumeAccueil?: jest.Mock;
+  getEffectifMatch?: jest.Mock;
 } = {}) {
   const consulterUseCase = {
     execute: options.getEffectif ?? jest.fn().mockResolvedValue(reponseVide),
@@ -51,6 +54,9 @@ function makeController(options: {
   const consulterResumeAccueilUseCase = {
     execute: options.getResumeAccueil ?? jest.fn().mockResolvedValue(resumeAccueilVide),
   } as unknown as ConsulterResumeAccueilUseCase;
+  const consulterEffectifMatchUseCase = {
+    execute: options.getEffectifMatch ?? jest.fn().mockResolvedValue(effectifMatchVide),
+  } as unknown as ConsulterEffectifMatchUseCase;
 
   return new DisponibilitesController(
     consulterUseCase,
@@ -59,6 +65,7 @@ function makeController(options: {
     declarerJourneeUseCase,
     listerMesDisponibilitesJourneeUseCase,
     consulterResumeAccueilUseCase,
+    consulterEffectifMatchUseCase,
   );
 }
 
@@ -67,6 +74,13 @@ const resumeAccueilVide: ResumeAccueilDto = {
   dernierePassee: null,
   prochainesDates: [],
   tableauDeBord: { totalAVenir: 0, renseigneesAVenir: 0, pourcentageRenseignement: 0 },
+};
+const effectifMatchVide: EffectifMatchResponseDto = {
+  matchCourant: null,
+  matchPrecedentId: null,
+  matchSuivantId: null,
+  badge: null,
+  joueurs: [],
 };
 
 describe('DisponibilitesController', () => {
@@ -126,6 +140,50 @@ describe('DisponibilitesController', () => {
       const controller = makeController({ getEffectif });
 
       const result = await controller.getEffectif();
+
+      expect(result).toBe(reponse);
+    });
+  });
+
+  describe('getEffectifMatch', () => {
+    it("délègue au use case sans matchId quand aucun query param n'est fourni", async () => {
+      const getEffectifMatch = jest.fn().mockResolvedValue(effectifMatchVide);
+      const controller = makeController({ getEffectifMatch });
+
+      const result = await controller.getEffectifMatch();
+
+      expect(getEffectifMatch).toHaveBeenCalledWith({ matchId: undefined });
+      expect(result).toBe(effectifMatchVide);
+    });
+
+    it('mappe le query param "matchId" vers le DTO transmis au use case', async () => {
+      const getEffectifMatch = jest.fn().mockResolvedValue(effectifMatchVide);
+      const controller = makeController({ getEffectifMatch });
+
+      await controller.getEffectifMatch('match-42');
+
+      expect(getEffectifMatch).toHaveBeenCalledWith({ matchId: 'match-42' });
+    });
+
+    it('renvoie directement la réponse du use case', async () => {
+      const reponse: EffectifMatchResponseDto = {
+        matchCourant: {
+          id: 'm1',
+          date: '2026-07-01',
+          heureConvocation: '14:00',
+          heureDebut: '15:00',
+          label: 'Match',
+          type: 'match',
+        },
+        matchPrecedentId: null,
+        matchSuivantId: null,
+        badge: { nbPresents: 0, nbDisponibles: 0, pourcentageSaisie: 0 },
+        joueurs: [],
+      };
+      const getEffectifMatch = jest.fn().mockResolvedValue(reponse);
+      const controller = makeController({ getEffectifMatch });
+
+      const result = await controller.getEffectifMatch('m1');
 
       expect(result).toBe(reponse);
     });
