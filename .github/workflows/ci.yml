@@ -23,9 +23,10 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Configure GitHub Packages auth (pnpm refuse d'expandre les env vars d'un .npmrc committé)
+        run: pnpm config set "//npm.pkg.github.com/:_authToken" "${{ secrets.PACKAGES_READ_TOKEN }}"
+
       - name: Install dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
         run: pnpm install --frozen-lockfile
 
       - name: Prisma generate
