@@ -55,9 +55,13 @@ jobs:
         run: az acr login --name $ACR_NAME
 
       - name: Build Docker image
+        env:
+          DOCKER_BUILDKIT: '1'
+          PACKAGES_READ_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
         run: |
           docker build \
             --no-cache \
+            --secret id=npm_token,env=PACKAGES_READ_TOKEN \
             -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG \
             .
 
