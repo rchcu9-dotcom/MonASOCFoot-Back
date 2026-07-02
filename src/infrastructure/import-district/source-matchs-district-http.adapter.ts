@@ -23,16 +23,20 @@ import type {
  */
 @Injectable()
 export class SourceMatchsDistrictHttpAdapter implements SourceMatchsDistrictPort {
-  async recupererMatchsAVenir(): Promise<MatchDistrictBrut[]> {
+  recupererMatchsAVenir(): Promise<MatchDistrictBrut[]> {
     const url = process.env.DISTRICT_SOURCE_URL;
     if (!url) {
-      throw new ServiceUnavailableException(
-        "Import indisponible : DISTRICT_SOURCE_URL n'est pas configurée (URL/structure du site du district pas encore communiquées par Lionel)",
+      return Promise.reject(
+        new ServiceUnavailableException(
+          "Import indisponible : DISTRICT_SOURCE_URL n'est pas configurée (URL/structure du site du district pas encore communiquées par Lionel)",
+        ),
       );
     }
 
-    throw new ServiceUnavailableException(
-      "Import indisponible : la logique de récupération/parsing du site du district reste à implémenter une fois son format confirmé",
+    return Promise.reject(
+      new ServiceUnavailableException(
+        "Import indisponible : la logique de récupération/parsing du site du district reste à implémenter une fois son format confirmé",
+      ),
     );
   }
 }
