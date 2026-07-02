@@ -11,8 +11,11 @@ const specsDir = join(projectRoot, 'docs', 'specs');
  * dans ces documents — repéré et corrigé en QA. `back/.env.local` est gitignoré et fait pour
  * contenir ce secret ; un fichier de doc ne l'est pas et ne doit jamais le reproduire, même si
  * la racine du projet n'est pas encore versionnée (cf. organisation-git-deploiement-monasocfoot).
+ *
+ * Sauté en CI : `docs/` vit à la racine du monorepo local, hors du repo GitHub isolé
+ * `MonASOCFoot-Back` (qui ne contient que le contenu de `back/`) — le fichier n'y existe pas.
  */
-describe('docs/specs/persistence-alwaysdata-monasocfoot — pas de secret réel dans la documentation', () => {
+(process.env.CI ? describe.skip : describe)('docs/specs/persistence-alwaysdata-monasocfoot — pas de secret réel dans la documentation', () => {
   const fichiers = ['persistence-alwaysdata-monasocfoot.md', 'persistence-alwaysdata-monasocfoot.track.md'];
 
   it.each(fichiers)("%s ne contient pas d'identifiants de connexion mysql:// en clair", (nomFichier) => {
