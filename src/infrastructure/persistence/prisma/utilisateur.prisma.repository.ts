@@ -51,6 +51,30 @@ export class UtilisateurPrismaRepository implements UtilisateurRepository {
       throw new NotFoundException(`Utilisateur ${id} introuvable`);
     }
   }
+
+  async updateProfil(
+    id: string,
+    profil: { dateNaissance?: string; numeroLicence?: string },
+  ): Promise<Utilisateur> {
+    try {
+      // `undefined` = champ absent du DTO, ne pas y toucher ; chaîne vide = champ vidé par
+      // l'utilisateur, redevient "non renseigné" (`null`) en base.
+      const updated = await this.prisma.utilisateur.update({
+        where: { id },
+        data: {
+          ...(profil.dateNaissance !== undefined && {
+            dateNaissance: profil.dateNaissance || null,
+          }),
+          ...(profil.numeroLicence !== undefined && {
+            numeroLicence: profil.numeroLicence || null,
+          }),
+        },
+      });
+      return toDomain(updated);
+    } catch {
+      throw new NotFoundException(`Utilisateur ${id} introuvable`);
+    }
+  }
 }
 
 function toDomain(row: UtilisateurRow): Utilisateur {
@@ -63,6 +87,8 @@ function toDomain(row: UtilisateurRow): Utilisateur {
     role: row.role as RoleUtilisateur,
     dateApparition: row.dateApparition,
     derniereConnexion: row.derniereConnexion,
+    dateNaissance: row.dateNaissance ?? undefined,
+    numeroLicence: row.numeroLicence ?? undefined,
   };
 }
 
@@ -75,6 +101,8 @@ function toPersistence(utilisateur: Utilisateur): {
   role: PrismaRoleUtilisateur;
   dateApparition: string;
   derniereConnexion: string;
+  dateNaissance: string | null;
+  numeroLicence: string | null;
 } {
   return {
     id: utilisateur.id,
@@ -85,5 +113,7 @@ function toPersistence(utilisateur: Utilisateur): {
     role: utilisateur.role as PrismaRoleUtilisateur,
     dateApparition: utilisateur.dateApparition,
     derniereConnexion: utilisateur.derniereConnexion ?? utilisateur.dateApparition,
+    dateNaissance: utilisateur.dateNaissance ?? null,
+    numeroLicence: utilisateur.numeroLicence ?? null,
   };
 }

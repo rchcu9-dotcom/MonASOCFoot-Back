@@ -16,4 +16,8 @@ export interface Utilisateur {
   dateApparition: string;
   /** ISO 8601 */
   derniereConnexion?: string;
+  /** ISO 8601 — yyyy-mm-dd. Renseignée par l'utilisateur lui-même depuis « Mon profil ». */
+  dateNaissance?: string;
+  /** Numéro de licence FFF, chaîne libre. Renseigné par l'utilisateur lui-même depuis « Mon profil ». */
+  numeroLicence?: string;
 }

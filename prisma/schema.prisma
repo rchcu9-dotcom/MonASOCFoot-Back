@@ -22,6 +22,10 @@ model Utilisateur {
   role              RoleUtilisateur @default(joueur)
   dateApparition    String
   derniereConnexion String
+  /// ISO 8601 (yyyy-mm-dd), renseignée par l'utilisateur lui-même depuis « Mon profil ».
+  dateNaissance     String?
+  /// Numéro de licence FFF, chaîne libre, renseignée par l'utilisateur lui-même.
+  numeroLicence     String?
 
   @@map("utilisateur")
 }

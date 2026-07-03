@@ -12,6 +12,8 @@ export interface UtilisateurDto {
   role: RoleUtilisateur;
   dateApparition: string;
   derniereConnexion?: string;
+  dateNaissance?: string;
+  numeroLicence?: string;
 }
 
 export function toUtilisateurDto(utilisateur: Utilisateur): UtilisateurDto {
