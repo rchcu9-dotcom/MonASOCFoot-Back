@@ -27,6 +27,7 @@ const REPONSE_AUCUN_MATCH: EffectifMatchResponseDto = {
   matchPrecedentId: null,
   matchSuivantId: null,
   badge: null,
+  matchsAVenir: [],
   joueurs: [],
 };
 
@@ -131,6 +132,7 @@ export class ConsulterEffectifMatchUseCase {
           ? matchsAVenir[indexResolu + 1].id
           : null,
       badge: construireBadge(joueurs, utilisateurs.length),
+      matchsAVenir: matchsAVenir.map(toActiviteColonneDto),
       joueurs,
     };
   }

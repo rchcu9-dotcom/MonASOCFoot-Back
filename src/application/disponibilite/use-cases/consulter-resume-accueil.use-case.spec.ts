@@ -41,7 +41,6 @@ function makeUseCase(overrides: {
     findById: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
     findUpcoming: jest.fn().mockResolvedValue([]),
-    findDernierePassee: jest.fn().mockResolvedValue(null),
     ...overrides.activiteRepository,
   } as unknown as ActiviteRepository;
 
@@ -71,81 +70,12 @@ function makeUseCase(overrides: {
 }
 
 describe('ConsulterResumeAccueilUseCase', () => {
-  describe('dernière activité passée', () => {
-    it('renvoie dernierePassee à null quand findDernierePassee ne renvoie aucune activité', async () => {
-      const { useCase } = makeUseCase();
+  it("ne renvoie pas de champ dernierePassee (bloc « Ma dernière activité » retiré)", async () => {
+    const { useCase } = makeUseCase();
 
-      const result = await useCase.execute(makeUtilisateur());
+    const result = await useCase.execute(makeUtilisateur());
 
-      expect(result.dernierePassee).toBeNull();
-    });
-
-    it('résout la disponibilité effective du joueur connecté pour sa dernière activité passée (surcharge prioritaire)', async () => {
-      const utilisateur = makeUtilisateur();
-      const dernierePassee = makeActivite({ id: 'passee-1', date: '2026-06-20' });
-      const surcharge: DisponibiliteActivite = {
-        id: 'da-1',
-        utilisateurId: utilisateur.id,
-        activiteId: 'passee-1',
-        statut: 'present',
-        commentaire: 'Présent',
-      };
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findDernierePassee: jest.fn().mockResolvedValue(dernierePassee),
-        },
-        disponibiliteActiviteRepository: {
-          findByActiviteIds: jest.fn().mockResolvedValue([surcharge]),
-        },
-      });
-
-      const result = await useCase.execute(utilisateur);
-
-      expect(result.dernierePassee).toEqual({
-        activite: expect.objectContaining({ id: 'passee-1', date: '2026-06-20' }),
-        disponibilite: { statut: 'present', commentaire: 'Présent', source: 'activite' },
-      });
-    });
-
-    it("retombe sur la dispo neutre quand aucune disponibilité n'est déclarée pour la dernière activité passée", async () => {
-      const utilisateur = makeUtilisateur();
-      const dernierePassee = makeActivite({ id: 'passee-1', date: '2026-06-20' });
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findDernierePassee: jest.fn().mockResolvedValue(dernierePassee),
-        },
-      });
-
-      const result = await useCase.execute(utilisateur);
-
-      expect(result.dernierePassee?.disponibilite).toEqual({ statut: 'autre', source: 'aucune' });
-    });
-
-    it("n'associe pas par erreur la disponibilité d'un autre utilisateur à la dernière activité passée", async () => {
-      const utilisateur = makeUtilisateur({ id: 'user-cible' });
-      const dernierePassee = makeActivite({ id: 'passee-1', date: '2026-06-20' });
-      const surchargeAutreUtilisateur: DisponibiliteActivite = {
-        id: 'da-1',
-        utilisateurId: 'autre-utilisateur',
-        activiteId: 'passee-1',
-        statut: 'present',
-      };
-
-      const { useCase } = makeUseCase({
-        activiteRepository: {
-          findDernierePassee: jest.fn().mockResolvedValue(dernierePassee),
-        },
-        disponibiliteActiviteRepository: {
-          findByActiviteIds: jest.fn().mockResolvedValue([surchargeAutreUtilisateur]),
-        },
-      });
-
-      const result = await useCase.execute(utilisateur);
-
-      expect(result.dernierePassee?.disponibilite.source).toBe('aucune');
-    });
+    expect(result).not.toHaveProperty('dernierePassee');
   });
 
   describe('3 prochaines dates', () => {
@@ -360,35 +290,28 @@ describe('ConsulterResumeAccueilUseCase', () => {
   });
 
   describe('appels repositories', () => {
-    it('interroge findDernierePassee et findUpcoming avec la date du jour (ISO yyyy-mm-dd)', async () => {
+    it('interroge findUpcoming avec la date du jour (ISO yyyy-mm-dd)', async () => {
       const { useCase, activiteRepository } = makeUseCase();
 
       await useCase.execute(makeUtilisateur());
 
       const aujourdHui = new Date().toISOString().slice(0, 10);
-      expect(activiteRepository.findDernierePassee).toHaveBeenCalledWith(aujourdHui);
       expect(activiteRepository.findUpcoming).toHaveBeenCalledWith(aujourdHui);
     });
 
-    it('interroge findByDates/findByActiviteIds avec les dates et ids de la dernière passée ET des activités à venir réunies', async () => {
-      const dernierePassee = makeActivite({ id: 'passee-1', date: '2026-06-20' });
+    it('interroge findByDates/findByActiviteIds avec les dates et ids des seules activités à venir', async () => {
       const aVenir = makeActivite({ id: 'avenir-1', date: '2026-07-01' });
 
       const { useCase, disponibiliteJourneeRepository, disponibiliteActiviteRepository } = makeUseCase({
         activiteRepository: {
-          findDernierePassee: jest.fn().mockResolvedValue(dernierePassee),
           findUpcoming: jest.fn().mockResolvedValue([aVenir]),
         },
       });
 
       await useCase.execute(makeUtilisateur());
 
-      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith([
-        '2026-06-20',
-        '2026-07-01',
-      ]);
+      expect(disponibiliteJourneeRepository.findByDates).toHaveBeenCalledWith(['2026-07-01']);
       expect(disponibiliteActiviteRepository.findByActiviteIds).toHaveBeenCalledWith([
-        'passee-1',
         'avenir-1',
       ]);
     });

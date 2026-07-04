@@ -71,7 +71,6 @@ function makeController(options: {
 
 const reponseVide: DisponibilitesEffectifResponseDto = { activites: [], joueurs: [] };
 const resumeAccueilVide: ResumeAccueilDto = {
-  dernierePassee: null,
   prochainesDates: [],
   tableauDeBord: { totalAVenir: 0, renseigneesAVenir: 0, pourcentageRenseignement: 0 },
 };
@@ -80,6 +79,7 @@ const effectifMatchVide: EffectifMatchResponseDto = {
   matchPrecedentId: null,
   matchSuivantId: null,
   badge: null,
+  matchsAVenir: [],
   joueurs: [],
 };
 
@@ -178,6 +178,7 @@ describe('DisponibilitesController', () => {
         matchPrecedentId: null,
         matchSuivantId: null,
         badge: { nbPresents: 0, nbDisponibles: 0, pourcentageSaisie: 0 },
+        matchsAVenir: [],
         joueurs: [],
       };
       const getEffectifMatch = jest.fn().mockResolvedValue(reponse);
@@ -343,7 +344,6 @@ describe('DisponibilitesController', () => {
   describe('getResumeAccueil', () => {
     it("délègue au use case avec l'utilisateur connecté et renvoie directement sa réponse", async () => {
       const resume: ResumeAccueilDto = {
-        dernierePassee: null,
         prochainesDates: [],
         tableauDeBord: { totalAVenir: 2, renseigneesAVenir: 1, pourcentageRenseignement: 50 },
       };

@@ -43,7 +43,6 @@ function makeUseCase(overrides: {
     findById: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
     findUpcoming: jest.fn().mockResolvedValue([]),
-    findDernierePassee: jest.fn().mockResolvedValue(null),
     ...overrides.activiteRepository,
   } as unknown as ActiviteRepository;
 

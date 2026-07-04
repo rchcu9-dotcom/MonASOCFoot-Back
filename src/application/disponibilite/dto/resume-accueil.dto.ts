@@ -21,7 +21,6 @@ export interface TableauDeBordAccueilDto {
 }
 
 export interface ResumeAccueilDto {
-  dernierePassee: ActiviteAvecDisponibiliteDto | null;
   /** 0 à 3 entrées, triées par date croissante. */
   prochainesDates: ProchaineDateAccueilDto[];
   tableauDeBord: TableauDeBordAccueilDto;

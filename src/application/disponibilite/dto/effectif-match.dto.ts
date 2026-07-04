@@ -25,5 +25,7 @@ export interface EffectifMatchResponseDto {
   matchSuivantId: string | null;
   /** `null` si aucun match à venir n'existe. */
   badge: EffectifMatchBadgeDto | null;
+  /** Ordre chronologique, tous les matchs à venir. Vide si aucun match à venir. */
+  matchsAVenir: ActiviteColonneDto[];
   joueurs: JoueurEffectifMatchDto[];
 }

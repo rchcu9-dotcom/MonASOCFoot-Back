@@ -43,7 +43,6 @@ function makeUseCase(overrides: {
     findById: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
     findUpcoming: jest.fn().mockResolvedValue([]),
-    findDernierePassee: jest.fn().mockResolvedValue(null),
     ...overrides.activiteRepository,
   } as unknown as ActiviteRepository;
 
@@ -98,6 +97,7 @@ describe('ConsulterEffectifMatchUseCase', () => {
         matchPrecedentId: null,
         matchSuivantId: null,
         badge: null,
+        matchsAVenir: [],
         joueurs: [],
       });
     });
@@ -215,6 +215,93 @@ describe('ConsulterEffectifMatchUseCase', () => {
 
       expect(result.matchPrecedentId).toBe('m1');
       expect(result.matchSuivantId).toBe('m3');
+    });
+  });
+
+  describe('matchsAVenir (liste complète pour la pop-up de sélection)', () => {
+    it('renvoie tous les matchs à venir, dans l\'ordre renvoyé par findUpcoming', async () => {
+      const matchs = [
+        makeActivite({ id: 'm1', date: '2026-07-01' }),
+        makeActivite({ id: 'm2', date: '2026-07-08' }),
+        makeActivite({ id: 'm3', date: '2026-07-15' }),
+      ];
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(matchs) },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.matchsAVenir.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
+    });
+
+    it('exclut les activités de type "autre" de la liste', async () => {
+      const activites = [
+        makeActivite({ id: 'ag-1', date: '2026-06-25', type: 'autre' }),
+        makeActivite({ id: 'm1', date: '2026-07-01', type: 'match' }),
+      ];
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(activites) },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.matchsAVenir.map((m) => m.id)).toEqual(['m1']);
+    });
+
+    it('reste identique quel que soit le match affiché (matchId) — indépendant de la navigation', async () => {
+      const matchs = [
+        makeActivite({ id: 'm1', date: '2026-07-01' }),
+        makeActivite({ id: 'm2', date: '2026-07-08' }),
+      ];
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue(matchs) },
+      });
+
+      const resultatM1 = await useCase.execute({ matchId: 'm1' });
+      const resultatM2 = await useCase.execute({ matchId: 'm2' });
+
+      expect(resultatM1.matchsAVenir.map((m) => m.id)).toEqual(
+        resultatM2.matchsAVenir.map((m) => m.id),
+      );
+    });
+
+    it('mappe chaque match avec les mêmes champs que matchCourant (id, date, heures, label, type, équipe, commentaire)', async () => {
+      const match = makeActivite({
+        id: 'm1',
+        date: '2026-07-01',
+        heureConvocation: '13:00',
+        heureDebut: '15:00',
+        label: 'Match amical',
+        type: 'match',
+        equipe: 'A',
+        commentaire: 'RDV au stade',
+      });
+      const { useCase } = makeUseCase({
+        activiteRepository: { findUpcoming: jest.fn().mockResolvedValue([match]) },
+      });
+
+      const result = await useCase.execute({});
+
+      expect(result.matchsAVenir).toEqual([
+        {
+          id: 'm1',
+          date: '2026-07-01',
+          heureConvocation: '13:00',
+          heureDebut: '15:00',
+          label: 'Match amical',
+          type: 'match',
+          equipe: 'A',
+          commentaire: 'RDV au stade',
+        },
+      ]);
+    });
+
+    it("est vide quand aucun match à venir n'existe", async () => {
+      const { useCase } = makeUseCase();
+
+      const result = await useCase.execute({});
+
+      expect(result.matchsAVenir).toEqual([]);
     });
   });
 

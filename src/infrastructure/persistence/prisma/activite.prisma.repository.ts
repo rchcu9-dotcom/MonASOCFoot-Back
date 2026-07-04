@@ -45,14 +45,6 @@ export class ActivitePrismaRepository implements ActiviteRepository {
     return activites.map(toDomain);
   }
 
-  async findDernierePassee(toDate: string): Promise<Activite | null> {
-    const activite = await this.prisma.activite.findFirst({
-      where: { date: { lte: toDate, not: null } },
-      orderBy: { date: 'desc' },
-    });
-    return activite ? toDomain(activite) : null;
-  }
-
   async findSansDate(): Promise<Activite[]> {
     const activites = await this.prisma.activite.findMany({
       where: { date: null },

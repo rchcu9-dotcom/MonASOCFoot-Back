@@ -8,11 +8,6 @@ export interface ActiviteRepository extends Repository<Activite> {
    * construction « à venir » pour aucun joueur tant qu'elles ne sont pas planifiées.
    */
   findUpcoming(fromDate: string): Promise<Activite[]>;
-  /**
-   * Activité la plus récente dont la date est <= `toDate` (ISO yyyy-mm-dd), ou `null` si
-   * aucune activité passée n'existe. Exclut les activités sans date.
-   */
-  findDernierePassee(toDate: string): Promise<Activite | null>;
   /** Activités sans date assignée (`date: null`), pour la colonne « Sans date » de la planification admin. */
   findSansDate(): Promise<Activite[]>;
   /** Supprime l'activité. Lève `NotFoundException` si elle n'existe pas. */

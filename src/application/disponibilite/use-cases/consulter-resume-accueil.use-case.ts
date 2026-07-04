@@ -19,11 +19,11 @@ import { fusionnerDisponibiliteEffective } from "../services/fusionner-disponibi
 const NOMBRE_PROCHAINES_DATES = 3;
 
 /**
- * Résumé personnel de la page Accueil pour l'utilisateur connecté : dernière activité passée,
- * 3 prochaines dates d'activités à venir, et tableau de bord (sur les activités à venir
- * uniquement, cf. décisions journalisées dans `decisions.json` pour
- * `sur-la-page-accueil-...`). Endpoint dédié et borné à l'utilisateur connecté — par
- * opposition à `ConsulterDisponibilitesEffectifUseCase` qui charge tout l'effectif.
+ * Résumé personnel de la page Accueil pour l'utilisateur connecté : 3 prochaines dates
+ * d'activités à venir, et tableau de bord (sur les activités à venir uniquement, cf. décisions
+ * journalisées dans `decisions.json` pour `sur-la-page-accueil-...`). Endpoint dédié et borné
+ * à l'utilisateur connecté — par opposition à `ConsulterDisponibilitesEffectifUseCase` qui
+ * charge tout l'effectif.
  */
 @Injectable()
 export class ConsulterResumeAccueilUseCase {
@@ -39,22 +39,15 @@ export class ConsulterResumeAccueilUseCase {
   async execute(utilisateurConnecte: Utilisateur): Promise<ResumeAccueilDto> {
     const aujourdHui = new Date().toISOString().slice(0, 10);
 
-    const [dernierePasseeBrute, activitesAVenirBrutes] = await Promise.all([
-      this.activiteRepository.findDernierePassee(aujourdHui),
-      this.activiteRepository.findUpcoming(aujourdHui),
-    ]);
+    const activitesAVenirBrutes =
+      await this.activiteRepository.findUpcoming(aujourdHui);
 
-    const dernierePasseeActivite = avecDate(dernierePasseeBrute);
     const activitesAVenir = activitesAVenirBrutes.filter(avecDateGuard);
 
-    const activitesPertinentes = dernierePasseeActivite
-      ? [dernierePasseeActivite, ...activitesAVenir]
-      : activitesAVenir;
-
     const datesDistinctes = Array.from(
-      new Set(activitesPertinentes.map((activite) => activite.date)),
+      new Set(activitesAVenir.map((activite) => activite.date)),
     );
-    const activiteIds = activitesPertinentes.map((activite) => activite.id);
+    const activiteIds = activitesAVenir.map((activite) => activite.id);
 
     const [dispoJournee, dispoActivite] = await Promise.all([
       this.disponibiliteJourneeRepository.findByDates(datesDistinctes),
@@ -80,9 +73,6 @@ export class ConsulterResumeAccueilUseCase {
       ),
     });
 
-    const dernierePassee = dernierePasseeActivite
-      ? resoudre(dernierePasseeActivite)
-      : null;
     const activitesAVenirResolues = activitesAVenir.map(resoudre);
 
     const datesAVenirDistinctes = Array.from(
@@ -102,7 +92,6 @@ export class ConsulterResumeAccueilUseCase {
     ).length;
 
     return {
-      dernierePassee,
       prochainesDates,
       tableauDeBord: {
         totalAVenir,
@@ -120,12 +109,6 @@ function avecDateGuard(
   activite: Activite,
 ): activite is Activite & { date: string } {
   return activite.date !== undefined;
-}
-
-function avecDate(
-  activite: Activite | null,
-): (Activite & { date: string }) | null {
-  return activite && avecDateGuard(activite) ? activite : null;
 }
 
 function indexerParCle<T>(
